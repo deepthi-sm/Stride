@@ -673,7 +673,20 @@
   font-weight: 500;
   white-space: nowrap;
 }
-.cal-week {
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 9px;
+  margin-bottom: 8px;
+}
+.cal-wd-head {
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  padding-left: 4px;
+}
+.cal-cells {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 9px;
@@ -690,8 +703,9 @@
 }
 .cal-day.today { border-color: var(--accentBorder); box-shadow: var(--glowSoft); }
 .cal-day-head { margin-bottom: 12px; }
-.cal-day-wd { color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: 0.6px; }
-.cal-day-date { font-size: 19px; font-weight: 700; margin-top: 2px; }
+/* The weekday sits in the header row on laptop; each cell only needs its date. */
+.cal-day-wd { display: none; color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: 0.6px; }
+.cal-day-date { font-size: 19px; font-weight: 700; }
 .cal-day.today .cal-day-date { color: var(--accent); }
 .cal-chips { display: flex; flex-direction: column; gap: 7px; }
 .cal-chip {
@@ -729,13 +743,24 @@
   box-shadow: none;
 }
 .cal-sync-err { color: var(--amber); font-size: 13.5px; text-align: center; margin: 12px 2px 0; }
-.cal-sync-note { color: var(--dim); font-size: 13px; text-align: center; margin: 10px 2px 0; }
+.cal-synced-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 4px 0 0;
+}
+.cal-synced-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: var(--glow); }
 
 @media (max-width: 819px) {
-  .cal-week { grid-template-columns: 1fr; gap: 8px; }
+  .cal-weekdays { display: none; }
+  .cal-cells { grid-template-columns: 1fr; gap: 8px; }
   .cal-day { min-height: 0; display: flex; align-items: center; gap: 16px; padding: 14px 16px; }
   .cal-day-head { margin-bottom: 0; display: flex; align-items: baseline; gap: 9px; min-width: 72px; flex-shrink: 0; }
-  .cal-day-date { margin-top: 0; }
+  .cal-day-wd { display: inline; }
   .cal-chips { flex: 1; flex-direction: row; flex-wrap: wrap; }
   .cal-chip { flex: 0 1 auto; }
 }
