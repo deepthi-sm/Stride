@@ -3,6 +3,8 @@ import Capture from './Capture.jsx';
 import Plan from './Plan.jsx';
 import Simulate from './Simulate.jsx';
 import Calendar from './Calendar.jsx';
+import Roadmap from './Roadmap.jsx';
+import Settings from './Settings.jsx';
 import Onboarding from './Onboarding.jsx';
 import Background from './Background.jsx';
 import { useTheme } from './theme.jsx';
@@ -91,16 +93,6 @@ function NavButtons({ view, onNavigate }) {
   );
 }
 
-// A calm placeholder for screens that get their design pass in a later step.
-function ComingSoon({ title }) {
-  return (
-    <div className="glass-solid coming-soon fade-in">
-      <h2>{title}</h2>
-      <p>This screen gets its new look in the next step. Your existing data and actions are untouched.</p>
-    </div>
-  );
-}
-
 // Onboarding completion is remembered per signed-in user, on the device. We do
 // NOT treat "the server already has a profile" as the gate: the store keeps one
 // global profile, so a fresh visitor would otherwise inherit a prior tester's
@@ -164,7 +156,7 @@ function SignInScreen({ onConnect, onGuest, busy, error }) {
 
 export default function App() {
   const { vars } = useTheme();
-  const { user, connect, busy: authBusy, error: authError } = useCalendar();
+  const { user, connect, disconnect, busy: authBusy, error: authError } = useCalendar();
 
   // authReady flips once Firebase has restored (or cleared) the signed-in user,
   // so a returning user is not flashed the sign-in screen on every load.
@@ -216,6 +208,22 @@ export default function App() {
       // ignore storage failures; guest still works for this session
     }
     setGuest(true);
+  }
+
+  // Sign out: drop the guest flag and sign out of Firebase (which also clears the
+  // calendar token). Identity then becomes null, so the app returns to sign-in.
+  async function signOut() {
+    try {
+      localStorage.removeItem('stride:guest');
+    } catch {
+      // ignore storage failures
+    }
+    setGuest(false);
+    try {
+      await disconnect();
+    } catch {
+      // ignore: a guest may have no Google session to end
+    }
   }
 
   // Onboarding finished (real answers or the sample): remember it for this
@@ -288,8 +296,8 @@ export default function App() {
             {view === 'capture' && <Capture onCaptured={goPlan} />}
             {view === 'simulate' && <Simulate />}
             {view === 'calendar' && <Calendar />}
-            {view === 'roadmap' && <ComingSoon title="Roadmap" />}
-            {view === 'settings' && <ComingSoon title="Settings" />}
+            {view === 'roadmap' && <Roadmap />}
+            {view === 'settings' && <Settings onSignOut={signOut} />}
           </div>
         </div>
 
