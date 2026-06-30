@@ -1,0 +1,14 @@
+# Controls what is uploaded to Cloud Build for `gcloud run deploy --source`.
+# Defining this file stops gcloud from falling back to .gitignore, which would
+# drop client/.env and ship a client with no Firebase config.
+
+.git/
+**/node_modules/
+client/dist/
+**/data.json
+
+# The server's Gemini key is a Cloud Run env var, never baked into the image.
+/.env
+
+# client/.env (the public Firebase web config) IS uploaded on purpose: Vite needs
+# it at build time to embed the config the browser SDK uses.
