@@ -46,18 +46,23 @@ app.get('/api/health', (req, res) => {
 // result (the same shape the endpoint used to return inline) or the error. The
 // work runs to completion regardless of the client, so a tab that went inactive
 // just collects the result here when it comes back.
-app.get('/api/jobs/:id', (req, res) => {
-  const job = getJob(req.params.id);
-  if (!job) {
-    return res.status(404).json({ error: 'job not found or expired' });
+app.get('/api/jobs/:id', async (req, res) => {
+  try {
+    const job = await getJob(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'job not found or expired' });
+    }
+    if (job.status === 'done') {
+      return res.json({ status: 'done', result: job.result });
+    }
+    if (job.status === 'error') {
+      return res.json({ status: 'error', error: job.error });
+    }
+    res.json({ status: 'running' });
+  } catch (err) {
+    console.error('job read failed:', err.message);
+    res.status(500).json({ error: err.message });
   }
-  if (job.status === 'done') {
-    return res.json({ status: 'done', result: job.result });
-  }
-  if (job.status === 'error') {
-    return res.json({ status: 'error', error: job.error });
-  }
-  res.json({ status: 'running' });
 });
 
 // The onboarding profile, validated against the six-question schema. Unknown or
@@ -149,7 +154,7 @@ app.post('/api/capture', async (req, res) => {
     return res.status(400).json({ error: 'text is required' });
   }
   try {
-    const jobId = startJob(async () => {
+    const jobId = await startJob(async () => {
       const parsed = await parseTasks(text);
       const now = new Date().toISOString();
       const created = parsed.map((p) => toStoredTask(p, now));
@@ -319,10 +324,10 @@ app.get('/api/plan', async (req, res) => {
 // counterfactual object as before. An empty or missing question runs a system
 // rescue using the profile's strategy. The Gemini work and recompute finish on
 // the server even if the tab is backgrounded; the client polls /api/jobs/:id.
-app.post('/api/simulate', (req, res) => {
+app.post('/api/simulate', async (req, res) => {
   try {
     const question = (req.body?.question ?? '').toString();
-    const jobId = startJob(async () => {
+    const jobId = await startJob(async () => {
       const state = {
         tasks: (await get('tasks')) || [],
         profile: await get('profile'),
@@ -362,7 +367,7 @@ app.post('/api/tasks/:id/status', async (req, res) => {
     // back its id. The rescue completes on the server even if the tab goes
     // inactive; the client polls /api/jobs/:id for it.
     if (status === 'slipping') {
-      const rescueJobId = startJob(async () =>
+      const rescueJobId = await startJob(async () =>
         counterfactualPlan(
           { tasks, profile: await get('profile'), signals: await get('signals') },
           '' // empty question triggers the rescue
@@ -390,7 +395,7 @@ app.post('/api/tasks/:id/action', async (req, res) => {
       return res.status(404).json({ error: 'task not found' });
     }
 
-    const jobId = startJob(async () => {
+    const jobId = await startJob(async () => {
       const { deliverableType, deliverable } = await runAction(task, await get('profile'));
       task.deliverableType = deliverableType;
       task.deliverable = deliverable;

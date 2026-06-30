@@ -1,59 +1,58 @@
-// Background job registry. The heavy AI work (Gemini calls plus the recompute)
-// runs here, detached from the HTTP request that started it. That is the whole
-// point: once a job starts it runs to completion on the server no matter what the
-// browser does. If the tab that asked for it is backgrounded, frozen, or its
-// request is dropped, the work still finishes and the result waits here until the
-// client polls for it.
+// Background job registry, backed by Firestore. The heavy AI work (Gemini calls
+// plus the recompute) runs detached from the HTTP request that started it, and
+// its state lives in Firestore rather than process memory. That is what makes it
+// safe on Cloud Run: an instance recycle, cold start, or a second instance no
+// longer loses the job, so a poll to GET /api/jobs/:id can be served from any
+// instance.
 //
-// In-memory is fine for tonight's single local process. Swapping this for a
-// shared store later is a change to this one file, like store.js.
+// Reuses the single Firestore client from store.js (same Application Default
+// Credentials and the (default) database) — no second client, no new credentials.
 
 import { randomUUID } from 'node:crypto';
+import { db } from './store.js';
 
-const jobs = new Map();
+// One document per job in the 'jobs' collection. Shape:
+//   { status: 'running' | 'done' | 'error', result?, error?, createdAt }
+const jobs = db.collection('jobs');
 
-// Hold a finished result long enough that a client returning to a long-inactive
-// tab can still collect it.
-const TTL_MS = 10 * 60 * 1000;
-
-// Drop results that have been sitting finished past the TTL so the map does not
-// grow without bound. Cheap to run on each new job.
-function sweep() {
-  const now = Date.now();
-  for (const [id, job] of jobs) {
-    if (job.finishedAt && now - job.finishedAt > TTL_MS) {
-      jobs.delete(id);
-    }
-  }
-}
-
-// Start running `run` (an async function) in the background and return its id at
-// once. The promise is intentionally not awaited by the caller, so the request
-// handler can respond immediately while the work continues here.
-export function startJob(run) {
+// Start running `run` (an async function) in the background and return its id.
+// startJob is async and awaits ONLY the create of the 'running' doc, so the doc
+// is guaranteed to exist in Firestore before the id is returned — the client
+// cannot poll faster than the create lands, which closes the first-poll race.
+//
+// The actual work is fire-and-forget: run() is NOT awaited, so the POST handler
+// responds 202 { jobId } in milliseconds while Gemini and the recompute continue.
+// On settle the same doc is updated to 'done' (with result) or 'error' (with
+// message); update (not set) so the original createdAt is preserved.
+export async function startJob(run) {
   const id = randomUUID();
-  jobs.set(id, { status: 'running', result: null, error: null, finishedAt: null });
+  const ref = jobs.doc(id);
 
+  // The only awaited write: the running doc must exist before we return the id.
+  await ref.set({ status: 'running', createdAt: new Date() });
+
+  // Fire-and-forget the work. Promise.resolve().then(run) so even a synchronous
+  // throw inside run becomes a rejection and lands as an 'error' job.
   Promise.resolve()
     .then(run)
-    .then((result) => {
-      jobs.set(id, { status: 'done', result, error: null, finishedAt: Date.now() });
-    })
+    .then((result) => ref.update({ status: 'done', result: result ?? null }))
     .catch((err) => {
       console.error('job failed:', err.message);
-      jobs.set(id, {
-        status: 'error',
-        result: null,
-        error: err.message || 'The request failed.',
-        finishedAt: Date.now(),
-      });
+      return ref.update({ status: 'error', error: err.message || 'The request failed.' });
+    })
+    .catch((err) => {
+      // The outcome write itself failed; only logging is left to do.
+      console.error('job write failed:', err.message);
     });
 
-  sweep();
   return id;
 }
 
-// Snapshot of a job, or null if it is unknown or has expired.
-export function getJob(id) {
-  return jobs.get(id) || null;
+// getJob(id) -> the stored job ({ status, result?, error?, createdAt }) or null
+// when no such document exists. Async, since it reads from Firestore; the
+// GET /api/jobs/:id handler awaits it.
+export async function getJob(id) {
+  const snapshot = await jobs.doc(id).get();
+  if (!snapshot.exists) return null;
+  return snapshot.data();
 }

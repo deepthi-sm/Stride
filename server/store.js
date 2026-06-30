@@ -13,7 +13,9 @@ import { Firestore } from '@google-cloud/firestore';
 // maps, so each value is wrapped as { value } and unwrapped on read.
 const COLLECTION = 'stride';
 
-const db = new Firestore(); // Application Default Credentials + (default) database
+// Exported so other server modules (e.g. jobs.js) can reuse this one client and
+// its Application Default Credentials rather than creating a second Firestore.
+export const db = new Firestore(); // Application Default Credentials + (default) database
 const collection = db.collection(COLLECTION);
 
 // get(key) -> the stored value, or null if the key has never been saved.
