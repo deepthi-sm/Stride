@@ -272,11 +272,24 @@ export function rescueGuidance() {
 
 const DELIVERABLE_ENUM = new Set(['draft_email', 'checklist', 'prep_doc']);
 
-// runAction(task, profile) -> { deliverableType, deliverable }
+// The deliverable type to request, derived from the task's real category. Picking
+// it in code (rather than leaving it open) keeps the draft grounded in what the
+// task actually is, so a vague task does not drift into a generic template.
+const SUGGESTED_TYPE = {
+  assignment: 'prep_doc',
+  application: 'draft_email',
+  bill: 'checklist',
+  meeting: 'prep_doc',
+  other: 'checklist',
+};
+
+// runAction(task, profile, riskBand) -> { deliverableType, deliverable }
 // The Auto-Action Engine: produce the first real deliverable for a task, matched
-// to the profile's tone and role. The current date is injected so dates in a
-// drafted email or prep doc are grounded.
-export async function runAction(task, profile) {
+// to the profile's tone and role. The task's real details (title, deadline, risk,
+// category, effort) and the requested deliverable type are all interpolated so the
+// model writes for THIS task, not a boilerplate template. The current date is
+// injected so any dates in a drafted email or prep doc are grounded.
+export async function runAction(task, profile, riskBand = 'low') {
   const { systemInstruction, schema } = loadPrompt(ACTION_PROMPT_PATH);
 
   const profileLines = profile
@@ -287,18 +300,30 @@ export async function runAction(task, profile) {
       ].join('\n')
     : 'No profile yet. Assume a student and keep the tone friendly but clear.';
 
+  const requestedType = SUGGESTED_TYPE[task.category] || 'checklist';
+
   const details = [
     `Title: ${task.title}`,
     `Category: ${task.category || 'other'}`,
     task.deadline ? `Deadline: ${task.deadline}` : 'Deadline: none',
+    `Risk level: ${riskBand}`,
     task.estEffortMins ? `Estimated effort: ${task.estEffortMins} minutes` : null,
   ]
     .filter(Boolean)
     .join('\n');
 
+  const contents =
+    `Current date: ${today()}\n\n` +
+    `User profile:\n${profileLines}\n\n` +
+    `Task to act on:\n${details}\n\n` +
+    `Requested deliverable: ${requestedType}\n\n` +
+    `Write that deliverable for THIS task, grounded in the details above. Base ` +
+    `every line on the real task title and its details, never a generic template. ` +
+    `Return only the deliverable text.`;
+
   const response = await client().models.generateContent({
     model: MODEL,
-    contents: `Current date: ${today()}\n\nUser profile:\n${profileLines}\n\nTask:\n${details}`,
+    contents,
     config: {
       systemInstruction,
       responseMimeType: 'application/json',
@@ -316,7 +341,7 @@ export async function runAction(task, profile) {
   }
   const deliverableType = DELIVERABLE_ENUM.has(parsed?.deliverableType)
     ? parsed.deliverableType
-    : 'prep_doc';
+    : requestedType;
   const deliverable = parsed?.deliverable ? String(parsed.deliverable).trim() : '';
   if (!deliverable) {
     throw new Error('Model returned an empty deliverable for runAction');

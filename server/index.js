@@ -395,8 +395,15 @@ app.post('/api/tasks/:id/action', async (req, res) => {
       return res.status(404).json({ error: 'task not found' });
     }
 
+    const profile = await get('profile');
+    const signals = await get('signals');
+    // The task's real risk band, computed in context, so the draft can match the
+    // task's urgency (buy time / protect the deadline when it is at risk).
+    const perTask = assessTasks(tasks, profile, signals);
+    const riskBand = perTask.find((p) => p.taskId === task.id)?.riskBand || 'low';
+
     const jobId = await startJob(async () => {
-      const { deliverableType, deliverable } = await runAction(task, await get('profile'));
+      const { deliverableType, deliverable } = await runAction(task, profile, riskBand);
       task.deliverableType = deliverableType;
       task.deliverable = deliverable;
       task.lastTouchedAt = new Date().toISOString();
