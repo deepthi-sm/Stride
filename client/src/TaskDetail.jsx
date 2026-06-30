@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CopyButton } from './RescuePanel.jsx';
+import { AddToCalendarButton } from './CalendarButtons.jsx';
 import { runJob } from './api.js';
 
 const TYPE_LABEL = {
@@ -67,6 +68,10 @@ export default function TaskDetail({ task, onBack }) {
           <p className="detail-hint">Edit anything you like, then copy it out.</p>
         </section>
       )}
+
+      <div className="task-actions">
+        <AddToCalendarButton task={task} />
+      </div>
     </div>
   );
 }

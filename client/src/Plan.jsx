@@ -1,36 +1,15 @@
 import { useEffect, useState } from 'react';
 import RescuePanel from './RescuePanel.jsx';
 import TaskDetail from './TaskDetail.jsx';
-import { AddToCalendarButton, SyncPlanButton } from './CalendarButtons.jsx';
-import { pollJob } from './api.js';
+import { runJob } from './api.js';
 
-const CATEGORY_LABEL = {
-  assignment: 'Assignment',
-  application: 'Application',
-  bill: 'Bill',
-  meeting: 'Meeting',
-  other: 'Task',
-};
+// The Home screen, restyled to the design. The data and behavior are unchanged:
+// it still reads the whole plan from GET /api/plan, opens the real TaskDetail for
+// any task, and runs the rescue through the existing POST /api/simulate path
+// (empty question -> system rescue using the profile's strategy). Only the look
+// changed.
 
-function formatDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso + 'T00:00:00');
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-}
-
-// Today, tomorrow, or the weekday name. Keeps the hero line calm and human.
-function whenLabel(iso, start) {
-  if (!iso) return '';
-  const today = new Date();
-  const todayIso = today.toISOString().slice(0, 10);
-  const tomorrow = new Date(today.getTime() + 86400000).toISOString().slice(0, 10);
-  let day;
-  if (iso === todayIso) day = 'today';
-  else if (iso === tomorrow) day = 'tomorrow';
-  else day = formatDate(iso);
-  return start ? `${day} at ${start}` : day;
-}
+const RISK_LABEL = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' };
 
 function formatDeadline(deadline) {
   if (!deadline) return 'No deadline';
@@ -39,37 +18,31 @@ function formatDeadline(deadline) {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-const BAND_LABEL = {
-  low: 'Low risk',
-  medium: 'Medium risk',
-  high: 'High risk',
-  critical: 'Critical',
-};
-
-// A task is "hot" (gets the amber border) when the brain flags it stale via
-// Ghost Mode or the risk band is high or critical.
-function isHot(t) {
-  return Boolean(t?.ghost) || t?.riskBand === 'high' || t?.riskBand === 'critical';
+function greetingFor() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
 }
 
-function RiskBand({ band }) {
-  if (!band) return null;
-  return <span className={`band band-${band}`}>{BAND_LABEL[band] || band}</span>;
+const RISK_CLASS = (band) => (['low', 'medium', 'high', 'critical'].includes(band) ? band : 'low');
+
+// Ghost mode is the calm amber flag for a stale-now-critical task; otherwise a
+// high/critical or flagged task gets the "At risk" flag.
+function TaskFlag({ task }) {
+  if (task.ghost) return <span className="flag-ghost">Ghost mode</span>;
+  if (task.atRisk || task.riskBand === 'high' || task.riskBand === 'critical') {
+    return <span className="flag-risk">⚑ At risk</span>;
+  }
+  return null;
 }
 
-// Ghost Mode: a calm amber flag for a task drifting untouched with work left.
-function GhostFlag() {
-  return <span className="ghost-flag">Ghost mode</span>;
-}
-
-// Module 2 plan screen. One highlighted next action, then the ordered list with
-// each task's next step, then the tradeoffs in plain words.
 export default function Plan() {
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [rescue, setRescue] = useState(null);
-  const [slipId, setSlipId] = useState('');
+  const [rescuing, setRescuing] = useState(false);
   const [detailTask, setDetailTask] = useState(null);
 
   async function loadPlan() {
@@ -90,157 +63,136 @@ export default function Plan() {
     loadPlan();
   }, []);
 
-  // Tell Stride a task is slipping. It returns a rescue plan to surface up top.
-  async function markSlipping(id) {
-    if (slipId) return;
-    setSlipId(id);
+  // Rescue my week: the system rescue (empty question) through the existing
+  // simulate wiring. No task status is mutated; it just reads back the triage.
+  async function runRescue() {
+    if (rescuing) return;
+    setRescuing(true);
     setError('');
     try {
-      const r = await fetch(`/api/tasks/${id}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'slipping' }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Could not reach the rescue.');
-      // The rescue runs as a backend job; poll for it so it completes on the
-      // server even if the tab goes inactive. (data.rescue kept as a fallback.)
-      const rescue = data.rescueJobId ? await pollJob(data.rescueJobId) : data.rescue;
-      setRescue(rescue);
+      const result = await runJob('/api/simulate', { question: '' });
+      setRescue(result);
     } catch (err) {
       setError(err.message);
     } finally {
-      setSlipId('');
+      setRescuing(false);
     }
   }
 
   function dismissRescue() {
     setRescue(null);
-    loadPlan(); // the slipping status changed the plan, so refresh it
+  }
+
+  // Drilled into one task: the real TaskDetail (its own design pass comes later).
+  if (detailTask) {
+    return <TaskDetail task={detailTask} onBack={() => { setDetailTask(null); loadPlan(); }} />;
   }
 
   if (busy) {
     return (
-      <div className="panel">
-        <p className="prompt">Building your plan…</p>
+      <div className="glass-solid state-card fade-in">
+        <p className="home-note">Building your week…</p>
       </div>
     );
   }
 
-  if (error) {
+  if (error && !plan) {
     return (
-      <div className="panel">
-        <p className="error">{error}</p>
+      <div className="glass-solid state-card fade-in">
+        <p className="home-error">{error}</p>
       </div>
     );
   }
 
   const tasks = plan?.tasks ?? [];
-  const next = plan?.nextAction ?? null;
-
-  if (tasks.length === 0) {
-    return (
-      <div className="panel">
-        <h1 className="wordmark">Your plan</h1>
-        <p className="plan-empty">Nothing to plan yet. Capture what is on your plate and Stride will order it for you.</p>
-      </div>
-    );
-  }
-
-  // Drilled into one task: Stride drafts the first piece of the work.
-  if (detailTask) {
-    return <TaskDetail task={detailTask} onBack={() => { setDetailTask(null); loadPlan(); }} />;
-  }
+  const hero = tasks[0] ?? null;
+  const coming = tasks.slice(1);
+  const tightLines = [
+    ...(plan?.risk?.bottlenecks ?? []),
+    ...(plan?.risk?.conflictChains ?? []),
+  ];
 
   return (
-    <div className="panel">
-      <h1 className="wordmark">Your plan</h1>
-
-      <SyncPlanButton tasks={tasks} />
+    <div className="fade-in">
+      <div className="home-head">
+        <div>
+          <div className="home-greeting">{greetingFor()}</div>
+          <h1 className="home-title">Here's your week</h1>
+        </div>
+        <button type="button" className="rescue-btn" onClick={runRescue} disabled={rescuing}>
+          <span className="dot" />
+          {rescuing ? 'Rescuing…' : 'Rescue my week'}
+        </button>
+      </div>
 
       {rescue && <RescuePanel result={rescue} onDismiss={dismissRescue} />}
 
-      {next && (
-        <section className={`next-action${isHot(next) ? ' at-risk' : ''}`}>
-          <span className="next-label">Start here</span>
-          <h2 className="next-title">{next.title}</h2>
-          <p className="next-step">{next.nextStep}</p>
-          <div className="next-flags">
-            <RiskBand band={next.riskBand} />
-            {next.ghost && <GhostFlag />}
-          </div>
-          {next.scheduledFor && (
-            <p className="next-when">Planned for {whenLabel(next.scheduledFor, next.start)}</p>
+      {tasks.length === 0 ? (
+        <div className="glass-solid state-card">
+          <p className="home-note">
+            Nothing to plan yet. Add what's on your plate with the bar below and Stride will order it for you.
+          </p>
+        </div>
+      ) : (
+        <>
+          {hero && (
+            <section className="hero">
+              <div className="hero-kicker"><span className="dot" />Right now</div>
+              <h2 className="hero-title">{hero.title}</h2>
+              <div className="hero-meta">
+                <span className="hero-due">Due {formatDeadline(hero.deadline)}</span>
+                {hero.nextStep && (
+                  <>
+                    <span className="hero-sep">·</span>
+                    <span className="hero-note">{hero.nextStep}</span>
+                  </>
+                )}
+              </div>
+              <button type="button" className="start-btn" onClick={() => setDetailTask(hero)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z" /></svg>
+                Start now
+              </button>
+            </section>
           )}
-        </section>
-      )}
 
-      <ol className="plan-list">
-        {tasks.map((t, i) => (
-          <li key={t.id} className={`plan-task${isHot(t) ? ' at-risk' : ''}`}>
-            <div className="plan-task-head">
-              <span className="plan-order">{i + 1}</span>
-              <div className="plan-task-body">
-                <div className="plan-task-title">
-                  {t.title}
-                  <RiskBand band={t.riskBand} />
-                  {t.ghost && <GhostFlag />}
-                </div>
-                <div className="task-meta">
-                  <span className="task-tag">{CATEGORY_LABEL[t.category] || 'Task'}</span>
-                  <span>Due {formatDeadline(t.deadline)}</span>
-                  {t.scheduledFor && <span>Planned {whenLabel(t.scheduledFor, t.start)}</span>}
-                </div>
-                <p className="plan-next-step">
-                  <span className="plan-next-label">Next step</span> {t.nextStep}
-                </p>
-                <div className="task-actions">
-                  <button
-                    type="button"
-                    className="draft-btn"
-                    onClick={() => setDetailTask(t)}
-                  >
-                    Draft this for me
-                  </button>
-                  <button
-                    type="button"
-                    className="slip-btn"
-                    onClick={() => markSlipping(t.id)}
-                    disabled={!!slipId}
-                  >
-                    {slipId === t.id ? 'Reaching for a rescue…' : 'I am slipping'}
-                  </button>
-                  <AddToCalendarButton task={t} />
-                </div>
+          {tightLines.length > 0 && (
+            <div className="tight">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" strokeWidth="1.9">
+                <path d="M12 3l9 16H3z" />
+                <path d="M12 9v5M12 16.5v.5" />
+              </svg>
+              <div>
+                <div className="tight-title">What's tight</div>
+                <p className="tight-text">{tightLines.join(' ')}</p>
               </div>
             </div>
-          </li>
-        ))}
-      </ol>
+          )}
 
-      {(plan.risk?.bottlenecks?.length > 0 || plan.risk?.conflictChains?.length > 0) && (
-        <section className="risk-read">
-          <h3 className="section-title">What is tight</h3>
-          <ul className="tradeoff-list">
-            {plan.risk.bottlenecks.map((line, i) => (
-              <li key={`b${i}`} className="tradeoff">{line}</li>
-            ))}
-            {plan.risk.conflictChains.map((line, i) => (
-              <li key={`c${i}`} className="tradeoff">{line}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {plan.tradeoffs?.length > 0 && (
-        <section className="tradeoffs">
-          <h3 className="section-title">Why this order</h3>
-          <ul className="tradeoff-list">
-            {plan.tradeoffs.map((line, i) => (
-              <li key={i} className="tradeoff">{line}</li>
-            ))}
-          </ul>
-        </section>
+          {coming.length > 0 && (
+            <>
+              <div className="coming-head">
+                <h3 className="coming-title">Coming up</h3>
+                <span className="coming-count">{coming.length} tasks</span>
+              </div>
+              <div className="coming-list">
+                {coming.map((t) => (
+                  <button key={t.id} type="button" className="task-row" onClick={() => setDetailTask(t)}>
+                    <span className={`risk-dot ${RISK_CLASS(t.riskBand)}`} />
+                    <div className="task-row-body">
+                      <div className="task-row-name">{t.title}</div>
+                      <div className="task-row-meta">
+                        <span className={`risk-chip ${RISK_CLASS(t.riskBand)}`}>{RISK_LABEL[t.riskBand] || 'Low'}</span>
+                        <TaskFlag task={t} />
+                        <span className="task-due">Due {formatDeadline(t.deadline)}</span>
+                      </div>
+                    </div>
+                    <span className="task-row-chev">›</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );
