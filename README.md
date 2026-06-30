@@ -88,6 +88,29 @@ Onboarding asks six questions, and each answer is a behavioral dial, not a label
 
 That is **4 x 5 x 4 x 2⁵ x 5 x 4 = 51,200 distinct profiles**. The answers are not cosmetic. They feed four different parts of the engine: when work gets scheduled, how risk is scored, the tone of every drafted message, and how a rescue is run. Give the same three deadlines to a last-minute student and to an early-finishing founder and you get a different plan and a different drafted message. The personalization is in the behavior, not the wording.
 
+## Gamification that keeps you moving
+
+Staying ahead of deadlines is a habit, and habits need a reason to repeat. Stride turns your progress into a climb up a trail of twenty tiers, so consistency becomes something you can watch build instead of a feeling you hope to keep.
+
+**How you earn points.** Momentum Points come from your real task history, never from busywork:
+
+- Finish a task before its deadline and you earn points, with a larger bonus the earlier you finish. More than two days ahead is worth double.
+- Heavier tasks are worth more than quick ones.
+- Let a task slide past its deadline and you lose points.
+
+Because the score is computed from actual completions, it rewards the one thing that matters: getting the work done on time, and ideally early. Mark a task complete and the points land on your trail.
+
+**The trail.** Twenty named tiers grouped into four arcs. The tier you stand on is simply the highest one your points have reached, so every early finish moves you up.
+
+| Arc | Tiers |
+|-----|-------|
+| Awakening | Wanderer, Seeker, Pilgrim, Climber, Strider |
+| Discipline | Keeper, Forger, Sentinel, Warden, Vanguard |
+| Mastery | Ascendant, Aegis, Luminary, Arbiter, Sovereign |
+| Transcendence | Paragon, Zenith, Oracle, Eternal, Astral |
+
+Each tier also names a consistency goal, like a multi-day streak, as the longer vision. Points are the only thing that unlock a tier, so the progress you see is always earned.
+
 ## Features
 
 Everything here is built and working:
