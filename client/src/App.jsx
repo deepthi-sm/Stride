@@ -5,6 +5,9 @@ import Simulate from './Simulate.jsx';
 import Onboarding from './Onboarding.jsx';
 import Background from './Background.jsx';
 import { useTheme } from './theme.jsx';
+import { useCalendar } from './CalendarContext.jsx';
+import { auth } from './firebase.js';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // The app shell, restyled to the design: a calm scenic background, a slim left
 // rail on laptop (bottom bar on mobile), and a single centered content column.
@@ -97,41 +100,85 @@ function ComingSoon({ title }) {
   );
 }
 
+// Onboarding completion is remembered per signed-in user, on the device. We do
+// NOT treat "the server already has a profile" as the gate: the store keeps one
+// global profile, so a fresh visitor would otherwise inherit a prior tester's
+// answers and skip straight in. A per-user flag means a new sign-in always sees
+// onboarding, while a returning user on the same device goes straight to the app.
+function onboardedKey(user) {
+  return user ? `stride:onboarded:${user.uid}` : null;
+}
+function readOnboarded(user) {
+  const key = onboardedKey(user);
+  if (!key) return false;
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+// A calm full-screen sign-in: the existing Google sign-in (the same one the
+// calendar uses) is the front door. Signing in gives the user identity that
+// scopes onboarding and, later in a session, the calendar token.
+function SignInScreen({ onConnect, busy, error }) {
+  return (
+    <div className="signin-card glass-solid fade-in">
+      <div className="signin-mark" />
+      <h1 className="signin-title">Stride</h1>
+      <p className="signin-sub">
+        The agent that catches you before deadlines collapse. Sign in to set up your week.
+      </p>
+      <button type="button" className="signin-btn" onClick={onConnect} disabled={busy}>
+        {busy ? 'Opening Google…' : 'Continue with Google'}
+      </button>
+      {error && <p className="home-error signin-error">{error}</p>}
+    </div>
+  );
+}
+
 export default function App() {
   const { vars } = useTheme();
-  // 'loading' until we know whether onboarding is needed, then 'onboarding' or
-  // 'ready' for the main app.
-  const [phase, setPhase] = useState('loading');
+  const { user, connect, busy: authBusy, error: authError } = useCalendar();
+
+  // authReady flips once Firebase has restored (or cleared) the signed-in user,
+  // so a returning user is not flashed the sign-in screen on every load.
+  const [authReady, setAuthReady] = useState(false);
+  const [onboarded, setOnboarded] = useState(false);
   const [view, setView] = useState('plan');
   // Bumping this key remounts the plan so a fresh capture is reflected.
   const [planKey, setPlanKey] = useState(0);
 
-  // On first load, decide between onboarding and the plan from the saved profile.
+  useEffect(() => onAuthStateChanged(auth, () => setAuthReady(true)), []);
+
+  // Re-read the per-user onboarding flag whenever the signed-in user changes.
   useEffect(() => {
-    let cancelled = false;
-    fetch('/api/profile')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((profile) => {
-        if (cancelled) return;
-        setPhase(profile && profile.role ? 'ready' : 'onboarding');
-      })
-      .catch(() => {
-        if (!cancelled) setPhase('onboarding');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    setOnboarded(readOnboarded(user));
+  }, [user]);
+
+  // The phase is derived, never stored: loading -> signin -> onboarding -> ready.
+  let phase;
+  if (!authReady) phase = 'loading';
+  else if (!user) phase = 'signin';
+  else if (!onboarded) phase = 'onboarding';
+  else phase = 'ready';
 
   function goPlan() {
     setPlanKey((k) => k + 1);
     setView('plan');
   }
 
-  // Onboarding finished: the profile is saved, so route into the app.
+  // Onboarding finished (real answers or the sample): remember it for this user on
+  // this device, then route into the app.
   function finishOnboarding() {
+    try {
+      const key = onboardedKey(user);
+      if (key) localStorage.setItem(key, '1');
+    } catch {
+      // ignore storage failures (private mode, etc.); the app still proceeds
+    }
+    setOnboarded(true);
     goPlan();
-    setPhase('ready');
   }
 
   if (phase === 'loading') {
@@ -146,6 +193,21 @@ export default function App() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'signin') {
+    return (
+      <div className="stride-shell" style={vars}>
+        <Background />
+        <div className="signin-screen">
+          <SignInScreen
+            onConnect={() => connect().catch(() => {})}
+            busy={authBusy}
+            error={authError}
+          />
         </div>
       </div>
     );

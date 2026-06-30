@@ -262,14 +262,14 @@ export default function Onboarding({ onComplete }) {
 
       {error && <p className="error">{error}</p>}
 
-      {!onReflection && (
+      {step === 0 && (
         <button
           type="button"
           className="ob-skip"
           onClick={() => finish(SAMPLE_PROFILE)}
           disabled={busy}
         >
-          Skip and explore with a sample
+          Skip, set me up with a sample
         </button>
       )}
     </div>
