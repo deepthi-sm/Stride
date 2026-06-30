@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Capture from './Capture.jsx';
-import Plan from './Plan.jsx';
+import Plan, { invalidatePlanCache } from './Plan.jsx';
 import Simulate from './Simulate.jsx';
 import Calendar from './Calendar.jsx';
 import Roadmap from './Roadmap.jsx';
@@ -229,7 +229,10 @@ export default function App() {
   else if (!onboarded) phase = 'onboarding';
   else phase = 'ready';
 
+  // Used after a capture or onboarding: drop the cached plan so the new tasks are
+  // fetched. Plain navigation uses setView, which keeps the cache and stays fast.
   function goPlan() {
+    invalidatePlanCache();
     setPlanKey((k) => k + 1);
     setView('plan');
   }
@@ -320,7 +323,7 @@ export default function App() {
       <div className="stride-app">
         <nav className="stride-rail">
           <div className="stride-logo"><span className="logo-s">S</span></div>
-          <NavButtons view={view} onNavigate={(id) => (id === 'plan' ? goPlan() : setView(id))} />
+          <NavButtons view={view} onNavigate={(id) => setView(id)} />
         </nav>
 
         <div className="stride-content">
@@ -354,7 +357,7 @@ export default function App() {
         )}
 
         <nav className="stride-bottom">
-          <NavButtons view={view} onNavigate={(id) => (id === 'plan' ? goPlan() : setView(id))} />
+          <NavButtons view={view} onNavigate={(id) => setView(id)} />
         </nav>
       </div>
     </div>

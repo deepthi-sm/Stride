@@ -9,6 +9,14 @@ import { runJob } from './api.js';
 // (empty question -> system rescue using the profile's strategy). Only the look
 // changed.
 
+// The plan is cached for the session so leaving Home and coming back does not
+// refetch (each /api/plan call runs a slow server-side risk narration). A capture
+// clears the cache through invalidatePlanCache so new tasks always show.
+let planCache = null;
+export function invalidatePlanCache() {
+  planCache = null;
+}
+
 const RISK_LABEL = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' };
 
 function formatDeadline(deadline) {
@@ -38,8 +46,8 @@ function TaskFlag({ task }) {
 }
 
 export default function Plan({ name }) {
-  const [plan, setPlan] = useState(null);
-  const [busy, setBusy] = useState(true);
+  const [plan, setPlan] = useState(planCache);
+  const [busy, setBusy] = useState(!planCache);
   const [error, setError] = useState('');
   const [rescue, setRescue] = useState(null);
   const [rescuing, setRescuing] = useState(false);
@@ -51,6 +59,7 @@ export default function Plan({ name }) {
       const r = await fetch('/api/plan');
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Could not build the plan.');
+      planCache = data;
       setPlan(data);
     } catch (err) {
       setError(err.message);
@@ -59,8 +68,10 @@ export default function Plan({ name }) {
     }
   }
 
+  // Only fetch when there is nothing cached. A capture invalidates the cache, so
+  // returning to Home after one still refreshes; a plain tab switch does not.
   useEffect(() => {
-    loadPlan();
+    if (!planCache) loadPlan();
   }, []);
 
   // Rescue my week: the system rescue (empty question) through the existing
@@ -85,7 +96,7 @@ export default function Plan({ name }) {
 
   // Drilled into one task: the real TaskDetail (its own design pass comes later).
   if (detailTask) {
-    return <TaskDetail task={detailTask} onBack={() => { setDetailTask(null); loadPlan(); }} />;
+    return <TaskDetail task={detailTask} onBack={() => setDetailTask(null)} />;
   }
 
   if (busy) {

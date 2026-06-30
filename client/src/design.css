@@ -92,6 +92,26 @@
   background: var(--haze);
 }
 
+/* Keep the older bare header text (Simulate, Capture) readable over the bright
+   orb, especially in night mode where both text and moon are near-white. */
+.wordmark,
+.prompt {
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
+}
+
+@media (max-width: 819px) {
+  /* On small screens the orb sits right behind the top content, so shrink, dim,
+     and tuck it into the corner so it never washes out text. */
+  .bg-orb {
+    width: 54px;
+    height: 54px;
+    top: 4%;
+    right: 6%;
+    box-shadow: 0 0 40px 8px var(--orbGlow);
+    opacity: 0.5;
+  }
+}
+
 /* ----- app layout: rail + content + bottom bar ----- */
 .stride-app {
   position: relative;

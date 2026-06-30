@@ -60,10 +60,16 @@ export default function Capture({ onCaptured }) {
     }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setError('Voice input is not supported in this browser. Chrome works best.');
+      setError('Voice input is not supported in this browser. Try Chrome on desktop or Android.');
       return;
     }
-    const rec = new SpeechRecognition();
+    let rec;
+    try {
+      rec = new SpeechRecognition();
+    } catch {
+      setError('Could not start voice input.');
+      return;
+    }
     rec.lang = 'en-US';
     rec.interimResults = false;
     rec.continuous = false;
@@ -73,15 +79,29 @@ export default function Capture({ onCaptured }) {
         .join(' ');
       appendText(transcript);
     };
-    rec.onerror = () => {
-      setError('Could not catch that. Try again.');
+    rec.onerror = (e) => {
+      const code = e?.error;
+      const message =
+        code === 'not-allowed' || code === 'service-not-allowed'
+          ? 'Microphone access is blocked. Allow the mic for this site, then try again.'
+          : code === 'no-speech'
+          ? 'I did not catch anything. Try speaking again.'
+          : code === 'audio-capture'
+          ? 'No microphone was found.'
+          : 'Voice input ran into a problem. Try again.';
+      setError(message);
       setListening(false);
     };
     rec.onend = () => setListening(false);
     setError('');
     setListening(true);
     recRef.current = rec;
-    rec.start();
+    try {
+      rec.start();
+    } catch {
+      // start() throws if a session is already running; reset quietly.
+      setListening(false);
+    }
   }
 
   // Image: read text off a photo with on-device OCR, then drop it in the box.

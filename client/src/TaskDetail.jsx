@@ -22,6 +22,15 @@ const DRAFT_LABEL = {
   prep_doc: 'Drafted prep doc',
 };
 
+// Turn a raw backend error into a calm line. The free Gemini tier is small, so a
+// quota error should read as a gentle limit, not a wall of JSON.
+function friendlyError(msg) {
+  if (/quota|RESOURCE_EXHAUSTED|429|rate.?limit|exceeded/i.test(msg || '')) {
+    return "Stride has reached today's AI limit (the free Gemini tier allows 20 requests a day). Your next steps are ready above; the draft will come back once the limit resets.";
+  }
+  return msg || 'Something went wrong.';
+}
+
 // "Due today, 5:00 PM" style. The day is relative when it is close; a real
 // scheduled start time is appended when the plan placed one, otherwise just the
 // day (no invented time).
@@ -134,6 +143,8 @@ export default function TaskDetail({ task, onBack }) {
 
   const steps = Array.isArray(task.subtasks) ? task.subtasks : [];
 
+  // Generate a fresh draft (a real Gemini request). Used on first open and when
+  // the user taps Regenerate.
   async function generate() {
     setBusy(true);
     setError('');
@@ -143,14 +154,36 @@ export default function TaskDetail({ task, onBack }) {
       setType(data.deliverableType);
       setText(data.deliverable);
     } catch (err) {
-      setError(err.message);
+      setError(friendlyError(err.message));
     } finally {
       setBusy(false);
     }
   }
 
+  // On open, reuse the draft the server already stored on this task so we do not
+  // spend a Gemini request every time. Only generate when there is none yet.
+  async function loadDraft() {
+    setBusy(true);
+    setError('');
+    try {
+      const r = await fetch('/api/tasks');
+      const all = await r.json();
+      const stored = Array.isArray(all) ? all.find((t) => t.id === task.id) : null;
+      if (stored && stored.deliverable) {
+        setType(stored.deliverableType || '');
+        setText(stored.deliverable);
+        setBusy(false);
+        return;
+      }
+      await generate();
+    } catch (err) {
+      setError(friendlyError(err.message));
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
-    generate();
+    loadDraft();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.id]);
 
