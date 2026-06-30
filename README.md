@@ -1,7 +1,3 @@
-<!-- Hero banner: add your image here and uncomment the line below. -->
-<!-- ![Stride](docs/banner.png) -->
-<!-- [ Add hero banner image at docs/banner.png ] -->
-
 <div align="center">
 
 # Stride
@@ -33,13 +29,9 @@ An AI agent that plans your week, drafts the work, and steps in when you fall be
 
 **Live app:** https://stride-1087194712125.asia-south1.run.app
 
-<!-- Demo video: paste your video link below and uncomment. -->
-<!-- [![Watch the demo](docs/video-thumb.png)](YOUR_VIDEO_LINK) -->
-
-> **[ Demo video: paste your 90-second video link or upload here ]**
-
-<!-- screenshot: sign-in -->
-> **[ screenshot here: sign-in screen ]**
+<div align="center">
+  <img src="docs/sign-in.png" alt="Stride sign-in" width="820">
+</div>
 
 ---
 
@@ -109,12 +101,6 @@ Everything here is built and working:
 - **Day, evening, and night themes** that follow the clock, plus a switcher.
 - **Guest mode and Google sign-in.**
 - **Persistent storage**, so your tasks, profile, and progress survive a restart.
-
-<!-- screenshot: task-detail -->
-> **[ screenshot here: task detail with next steps and a drafted deliverable ]**
-
-<!-- screenshot: calendar -->
-> **[ screenshot here: calendar week view ]**
 
 ## Built with
 
