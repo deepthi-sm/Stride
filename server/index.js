@@ -68,8 +68,8 @@ app.post('/api/capture', async (req, res) => {
     const parsed = await parseTasks(text);
     const now = new Date().toISOString();
     const created = parsed.map((p) => toStoredTask(p, now));
-    const existing = get('tasks') || [];
-    save('tasks', existing.concat(created));
+    const existing = (await get('tasks')) || [];
+    await save('tasks', existing.concat(created));
     res.json(created);
   } catch (err) {
     console.error('capture failed:', err.message);
@@ -78,8 +78,13 @@ app.post('/api/capture', async (req, res) => {
 });
 
 // GET /api/tasks -> the stored tasks.
-app.get('/api/tasks', (req, res) => {
-  res.json(get('tasks') || []);
+app.get('/api/tasks', async (req, res) => {
+  try {
+    res.json((await get('tasks')) || []);
+  } catch (err) {
+    console.error('tasks read failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Give a task its first steps if it does not have them yet. Subtasks are cached
@@ -118,9 +123,9 @@ async function ensureSubtasks(tasks, topTaskId) {
 // next step, the plain-language tradeoffs, and the at-risk list.
 app.get('/api/plan', async (req, res) => {
   try {
-    const tasks = get('tasks') || [];
-    const profile = get('profile'); // may be null until onboarding is done
-    const signals = get('signals'); // may be null this early
+    const tasks = (await get('tasks')) || [];
+    const profile = await get('profile'); // may be null until onboarding is done
+    const signals = await get('signals'); // may be null this early
 
     // The schedule is pure code and does not need subtasks, so build it first to
     // learn the order. The order tasks first appear in the schedule is the plan
@@ -134,7 +139,7 @@ app.get('/api/plan', async (req, res) => {
 
     // Now fill in first steps for the big tasks and the highlighted top action.
     if (await ensureSubtasks(tasks, orderIds[0])) {
-      save('tasks', tasks);
+      await save('tasks', tasks);
     }
 
     const byId = Object.fromEntries(tasks.map((t) => [t.id, t]));
@@ -228,9 +233,9 @@ app.post('/api/simulate', async (req, res) => {
   try {
     const question = (req.body?.question ?? '').toString();
     const state = {
-      tasks: get('tasks') || [],
-      profile: get('profile'),
-      signals: get('signals'),
+      tasks: (await get('tasks')) || [],
+      profile: await get('profile'),
+      signals: await get('signals'),
     };
     const result = await counterfactualPlan(state, question);
     res.json(result);
@@ -250,7 +255,7 @@ app.post('/api/tasks/:id/status', async (req, res) => {
     if (!TASK_STATUSES.has(status)) {
       return res.status(400).json({ error: 'status must be todo, in_progress, done, or slipping' });
     }
-    const tasks = get('tasks') || [];
+    const tasks = (await get('tasks')) || [];
     const task = tasks.find((t) => t.id === req.params.id);
     if (!task) {
       return res.status(404).json({ error: 'task not found' });
@@ -258,11 +263,11 @@ app.post('/api/tasks/:id/status', async (req, res) => {
 
     task.status = status;
     task.lastTouchedAt = new Date().toISOString();
-    save('tasks', tasks);
+    await save('tasks', tasks);
 
     if (status === 'slipping') {
       const result = await counterfactualPlan(
-        { tasks, profile: get('profile'), signals: get('signals') },
+        { tasks, profile: await get('profile'), signals: await get('signals') },
         '' // empty question triggers the rescue
       );
       return res.json({ task, rescue: result });
@@ -278,17 +283,17 @@ app.post('/api/tasks/:id/status', async (req, res) => {
 // the deliverable on it, and return it.
 app.post('/api/tasks/:id/action', async (req, res) => {
   try {
-    const tasks = get('tasks') || [];
+    const tasks = (await get('tasks')) || [];
     const task = tasks.find((t) => t.id === req.params.id);
     if (!task) {
       return res.status(404).json({ error: 'task not found' });
     }
 
-    const { deliverableType, deliverable } = await runAction(task, get('profile'));
+    const { deliverableType, deliverable } = await runAction(task, await get('profile'));
     task.deliverableType = deliverableType;
     task.deliverable = deliverable;
     task.lastTouchedAt = new Date().toISOString();
-    save('tasks', tasks);
+    await save('tasks', tasks);
 
     res.json({ task, deliverableType, deliverable });
   } catch (err) {

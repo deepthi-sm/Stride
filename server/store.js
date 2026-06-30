@@ -1,50 +1,32 @@
 // The single place that touches storage.
-// Tonight: a local JSON file. Later: swap this file for Firestore, nothing else changes.
+// Backed by Firestore (the (default) database) via Application Default
+// Credentials, using the @google-cloud/firestore library.
 //
-// Exposes get(key) and save(key, value). The backing file is created if missing
-// and an empty or corrupt file never crashes the server, it is treated as {}.
+// get and save are async and talk to Firestore directly. There is no in-memory
+// mirror and no background writing: a save is durably written before its promise
+// resolves, and a get reads current data from Firestore every time. This is what
+// makes storage safe on Cloud Run, where several instances share one database.
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { Firestore } from '@google-cloud/firestore';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_FILE = join(__dirname, 'data.json');
+// One document per key (tasks, profile, signals). Firestore documents must be
+// maps, so each value is wrapped as { value } and unwrapped on read.
+const COLLECTION = 'stride';
 
-function readAll() {
-  if (!existsSync(DATA_FILE)) {
-    return {};
-  }
-  let raw;
-  try {
-    raw = readFileSync(DATA_FILE, 'utf8');
-  } catch {
-    return {};
-  }
-  if (!raw || raw.trim() === '') {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    // Corrupt file, do not crash. Start from empty.
-    return {};
-  }
+const db = new Firestore(); // Application Default Credentials + (default) database
+const collection = db.collection(COLLECTION);
+
+// get(key) -> the stored value, or null if the key has never been saved.
+export async function get(key) {
+  const snapshot = await collection.doc(key).get();
+  if (!snapshot.exists) return null;
+  const data = snapshot.data();
+  return data ? data.value ?? null : null;
 }
 
-function writeAll(data) {
-  writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
-}
-
-export function get(key) {
-  const data = readAll();
-  return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null;
-}
-
-export function save(key, value) {
-  const data = readAll();
-  data[key] = value;
-  writeAll(data);
+// save(key, value) -> write the value and wait for Firestore to confirm the
+// write before resolving, then return the value.
+export async function save(key, value) {
+  await collection.doc(key).set({ value });
   return value;
 }
