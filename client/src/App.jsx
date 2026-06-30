@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Capture from './Capture.jsx';
 import Plan from './Plan.jsx';
 import Simulate from './Simulate.jsx';
+import Calendar from './Calendar.jsx';
 import Onboarding from './Onboarding.jsx';
 import Background from './Background.jsx';
 import { useTheme } from './theme.jsx';
@@ -286,7 +287,7 @@ export default function App() {
             {view === 'plan' && <Plan key={planKey} />}
             {view === 'capture' && <Capture onCaptured={goPlan} />}
             {view === 'simulate' && <Simulate />}
-            {view === 'calendar' && <ComingSoon title="Calendar" />}
+            {view === 'calendar' && <Calendar />}
             {view === 'roadmap' && <ComingSoon title="Roadmap" />}
             {view === 'settings' && <ComingSoon title="Settings" />}
           </div>
