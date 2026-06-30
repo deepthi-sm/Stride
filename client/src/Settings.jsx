@@ -50,11 +50,43 @@ const RESCUE_CHIP = {
   draft_message: 'Draft a message',
 };
 
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+    </svg>
+  );
+}
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M20 14.5A8 8 0 119.5 4a6.2 6.2 0 0010.5 10.5z" />
+    </svg>
+  );
+}
+function SunsetIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M17 18a5 5 0 00-10 0" />
+      <path d="M12 9V3M4.9 10.9l-1-1M19.1 10.9l1-1M2 18h2M20 18h2M3 21h18" />
+    </svg>
+  );
+}
+function ClockIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
 const THEME_META = [
-  { value: 'day', label: 'Day', swatch: 'linear-gradient(135deg,#9fc6f2,#e8f2fb)' },
-  { value: 'evening', label: 'Evening', swatch: 'linear-gradient(135deg,#4a2b50,#c47556)' },
-  { value: 'night', label: 'Night', swatch: 'linear-gradient(135deg,#10102a,#3a2a5c)' },
-  { value: 'auto', label: 'Follow the clock', swatch: 'linear-gradient(135deg,#9fc6f2,#221b40)' },
+  { value: 'day', label: 'Day', swatch: 'linear-gradient(135deg,#9fc6f2,#e8f2fb)', icon: SunIcon },
+  { value: 'evening', label: 'Evening', swatch: 'linear-gradient(135deg,#4a2b50,#c47556)', icon: SunsetIcon },
+  { value: 'night', label: 'Night', swatch: 'linear-gradient(135deg,#10102a,#3a2a5c)', icon: MoonIcon },
+  { value: 'auto', label: 'Follow the clock', swatch: 'linear-gradient(135deg,#9fc6f2,#221b40)', icon: ClockIcon },
 ];
 
 function profileChips(profile) {
@@ -143,18 +175,23 @@ export default function Settings({ onSignOut }) {
 
       <div className="set-section-label">Theme</div>
       <div className="set-themes">
-        {THEME_META.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            className={`set-theme${theme === t.value ? ' on' : ''}`}
-            onClick={() => setTheme(t.value)}
-          >
-            <span className="set-theme-swatch" style={{ background: t.swatch }} />
-            <span className="set-theme-label">{t.label}</span>
-            {theme === t.value && <span className="set-theme-check">✓</span>}
-          </button>
-        ))}
+        {THEME_META.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.value}
+              type="button"
+              className={`set-theme${theme === t.value ? ' on' : ''}`}
+              onClick={() => setTheme(t.value)}
+            >
+              <span className="set-theme-swatch" style={{ background: t.swatch }}>
+                <Icon />
+              </span>
+              <span className="set-theme-label">{t.label}</span>
+              {theme === t.value && <span className="set-theme-check">✓</span>}
+            </button>
+          );
+        })}
       </div>
 
       <div className="set-section-label">Connection</div>

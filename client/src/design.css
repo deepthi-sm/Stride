@@ -113,13 +113,30 @@
   border-right: 1px solid var(--border);
 }
 .stride-logo {
+  position: relative;
   width: 32px;
   height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+.stride-logo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   border-radius: 10px;
   background: var(--accent);
   box-shadow: var(--glow);
   transform: rotate(45deg);
-  margin-bottom: 22px;
+}
+.logo-s {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
 }
 .nav-btn {
   display: flex;
@@ -245,12 +262,29 @@
   margin-bottom: 26px;
 }
 .signin-mark {
+  position: relative;
   width: 30px;
   height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.signin-mark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   border-radius: 9px;
   background: var(--accent);
   box-shadow: var(--glow);
   transform: rotate(45deg);
+}
+.signin-mark-s {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
 }
 .signin-brandname { font-size: 25px; font-weight: 700; letter-spacing: -0.3px; }
 .signin-title {
@@ -312,6 +346,44 @@
   max-width: 400px;
 }
 .signin-error { margin-top: 16px; font-size: 13.5px; }
+
+/* ----- center the older module panels (Simulate, Capture) in the new shell ----- */
+.panel { margin-left: auto; margin-right: auto; }
+
+/* name input on the onboarding hello screen */
+.ob-input {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  font: inherit;
+  font-size: 1rem;
+  color: #f4f3fb;
+  background: #16172a;
+  border: 1px solid #2a2c45;
+  border-radius: 14px;
+  outline: none;
+}
+.ob-input:focus { border-color: #8b7fe8; }
+.ob-input::placeholder { color: #6b6d86; }
+
+/* voice and image input buttons on the capture screen */
+.capture-tools { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
+.capture-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #b3aef0;
+  background: rgba(139, 127, 232, 0.12);
+  border: 1px solid #3a356a;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.capture-tool:hover { color: #fff; background: #8b7fe8; border-color: #8b7fe8; }
+.capture-tool.on { color: #fff; background: #8b7fe8; border-color: #8b7fe8; }
+.capture-tool.busy { opacity: 0.7; cursor: default; }
 
 /* ----- glass panels ----- */
 .glass {
@@ -909,7 +981,18 @@
 }
 .set-theme:hover { border-color: var(--accentBorder); }
 .set-theme.on { border-color: var(--accent); background: var(--accentField); }
-.set-theme-swatch { width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border); }
+.set-theme-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.set-theme-swatch svg { filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.5)); }
 .set-theme-label { font-size: 14.5px; font-weight: 600; flex: 1; text-align: left; }
 .set-theme-check { color: var(--accent); font-weight: 700; }
 .set-connection { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 20px; margin-bottom: 22px; }

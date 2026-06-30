@@ -113,6 +113,22 @@ function readOnboarded(user) {
   }
 }
 
+// The name to greet the user by, kept on the device per identity. It never goes
+// to the server: the profile endpoint only stores the six enum answers, so a name
+// would be dropped there anyway.
+function nameKey(user) {
+  return user ? `stride:name:${user.uid}` : null;
+}
+function readName(user) {
+  const key = nameKey(user);
+  if (!key) return '';
+  try {
+    return localStorage.getItem(key) || '';
+  } catch {
+    return '';
+  }
+}
+
 function GoogleG() {
   return (
     <svg className="signin-gicon" width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
@@ -131,7 +147,7 @@ function SignInScreen({ onConnect, onGuest, busy, error }) {
   return (
     <div className="signin-card glass-solid fade-in">
       <div className="signin-brand">
-        <span className="signin-mark" />
+        <span className="signin-mark"><span className="signin-mark-s">S</span></span>
         <span className="signin-brandname">Stride</span>
       </div>
       <h1 className="signin-title">Catches you before<br />the deadline does.</h1>
@@ -172,6 +188,7 @@ export default function App() {
     }
   });
   const [onboarded, setOnboarded] = useState(false);
+  const [displayName, setDisplayName] = useState('');
   const [view, setView] = useState('plan');
   // Bumping this key remounts the plan so a fresh capture is reflected.
   const [planKey, setPlanKey] = useState(0);
@@ -182,11 +199,27 @@ export default function App() {
 
   useEffect(() => onAuthStateChanged(auth, () => setAuthReady(true)), []);
 
-  // Re-read the per-identity onboarding flag whenever the identity changes.
+  // Re-read the per-identity onboarding flag and saved name when identity changes.
   useEffect(() => {
     setOnboarded(readOnboarded(identity));
+    setDisplayName(readName(identity));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, guest]);
+
+  // Save the name the user chose at the start of onboarding, on this device.
+  function saveName(name) {
+    const clean = (name || '').trim().slice(0, 40);
+    try {
+      const key = nameKey(identity);
+      if (key) {
+        if (clean) localStorage.setItem(key, clean);
+        else localStorage.removeItem(key);
+      }
+    } catch {
+      // ignore storage failures; the greeting just stays generic
+    }
+    setDisplayName(clean);
+  }
 
   // The phase is derived, never stored: loading -> signin -> onboarding -> ready.
   // A guest skips the Firebase wait entirely.
@@ -276,7 +309,7 @@ export default function App() {
   if (phase === 'onboarding') {
     return (
       <main className="screen">
-        <Onboarding onComplete={finishOnboarding} />
+        <Onboarding onComplete={finishOnboarding} onName={saveName} />
       </main>
     );
   }
@@ -286,13 +319,13 @@ export default function App() {
       <Background />
       <div className="stride-app">
         <nav className="stride-rail">
-          <div className="stride-logo" />
+          <div className="stride-logo"><span className="logo-s">S</span></div>
           <NavButtons view={view} onNavigate={(id) => (id === 'plan' ? goPlan() : setView(id))} />
         </nav>
 
         <div className="stride-content">
           <div className={`stride-col${view === 'plan' ? ' home' : ''}`}>
-            {view === 'plan' && <Plan key={planKey} />}
+            {view === 'plan' && <Plan key={planKey} name={displayName} />}
             {view === 'capture' && <Capture onCaptured={goPlan} />}
             {view === 'simulate' && <Simulate />}
             {view === 'calendar' && <Calendar />}

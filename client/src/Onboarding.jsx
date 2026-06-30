@@ -157,13 +157,53 @@ const SAMPLE_PROFILE = {
 
 const TOTAL = QUESTIONS.length; // six question screens, then the reflection
 
-export default function Onboarding({ onComplete }) {
-  // step 0..5 are the questions, step 6 is the reflection screen.
+export default function Onboarding({ onComplete, onName }) {
+  // A short name screen comes first, then step 0..5 are the questions and step 6
+  // is the reflection screen.
+  const [stage, setStage] = useState('name'); // 'name' | 'questions'
+  const [name, setName] = useState('');
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState('next'); // drives the slide direction
   const [answers, setAnswers] = useState({ slowdowns: [] });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Hand the name up to be saved, then move into the six questions.
+  function submitName() {
+    if (onName) onName(name);
+    setStage('questions');
+  }
+
+  if (stage === 'name') {
+    return (
+      <div className="panel onboarding">
+        <div className="ob-stage">
+          <div className="ob-card slide-next">
+            <div className="ob-question">
+              <span className="ob-kicker">First, a quick hello</span>
+              <h1 className="ob-title">What should I call you?</h1>
+              <p className="ob-hint">Just for your greetings. You can leave it blank.</p>
+              <input
+                className="ob-input"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                maxLength={40}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') submitName();
+                }}
+              />
+              <button type="button" className="ob-continue" onClick={submitName}>
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   function goTo(next, direction) {
     setDir(direction);

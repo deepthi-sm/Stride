@@ -37,7 +37,7 @@ function TaskFlag({ task }) {
   return null;
 }
 
-export default function Plan() {
+export default function Plan({ name }) {
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
@@ -116,7 +116,7 @@ export default function Plan() {
     <div className="fade-in">
       <div className="home-head">
         <div>
-          <div className="home-greeting">{greetingFor()}</div>
+          <div className="home-greeting">{greetingFor()}{name ? `, ${name}` : ''}</div>
           <h1 className="home-title">Here's your week</h1>
         </div>
         <button type="button" className="rescue-btn" onClick={runRescue} disabled={rescuing}>
