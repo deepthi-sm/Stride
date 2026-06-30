@@ -233,39 +233,84 @@
 }
 .signin-card {
   width: 100%;
-  max-width: 380px;
-  padding: 40px 32px;
+  max-width: 500px;
+  padding: 44px 40px 34px;
   text-align: center;
 }
+.signin-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 26px;
+}
 .signin-mark {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   background: var(--accent);
   box-shadow: var(--glow);
   transform: rotate(45deg);
-  margin: 0 auto 24px;
 }
-.signin-title { font-size: 30px; font-weight: 700; margin: 0 0 10px; letter-spacing: -0.6px; }
-.signin-sub { color: var(--dim); font-size: 15px; line-height: 1.55; margin: 0 0 28px; }
-.signin-btn {
+.signin-brandname { font-size: 25px; font-weight: 700; letter-spacing: -0.3px; }
+.signin-title {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.8px;
+  margin: 0 0 18px;
+}
+.signin-sub {
+  color: var(--dim);
+  font-size: 15.5px;
+  line-height: 1.55;
+  margin: 0 auto 30px;
+  max-width: 420px;
+}
+.signin-google {
   width: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  background: var(--accent);
-  color: #fff;
+  gap: 11px;
+  background: #fff;
+  color: #1f2330;
   border: none;
   border-radius: 14px;
-  padding: 14px 22px;
+  padding: 15px 22px;
   font-weight: 600;
   font-size: 15.5px;
   font-family: inherit;
   cursor: pointer;
-  box-shadow: var(--glowSoft);
+  margin-bottom: 12px;
 }
-.signin-btn:disabled { opacity: 0.7; cursor: default; }
+.signin-google:disabled { opacity: 0.7; cursor: default; }
+.signin-gicon { flex-shrink: 0; }
+.signin-guest {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--field);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 22px;
+  font-weight: 600;
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.signin-guest:hover { border-color: var(--accentBorder); }
+.signin-guest:disabled { opacity: 0.7; cursor: default; }
+.signin-foot {
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 24px auto 0;
+  max-width: 400px;
+}
 .signin-error { margin-top: 16px; font-size: 13.5px; }
 
 /* ----- glass panels ----- */

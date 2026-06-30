@@ -105,6 +105,8 @@ function ComingSoon({ title }) {
 // global profile, so a fresh visitor would otherwise inherit a prior tester's
 // answers and skip straight in. A per-user flag means a new sign-in always sees
 // onboarding, while a returning user on the same device goes straight to the app.
+const GUEST_IDENTITY = { uid: 'guest' };
+
 function onboardedKey(user) {
   return user ? `stride:onboarded:${user.uid}` : null;
 }
@@ -118,21 +120,43 @@ function readOnboarded(user) {
   }
 }
 
-// A calm full-screen sign-in: the existing Google sign-in (the same one the
-// calendar uses) is the front door. Signing in gives the user identity that
-// scopes onboarding and, later in a session, the calendar token.
-function SignInScreen({ onConnect, busy, error }) {
+function GoogleG() {
+  return (
+    <svg className="signin-gicon" width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+// The sign-in front door, matching the design: brand lockup, headline, the white
+// Google button (the real Firebase sign-in), and a guest path that keeps work on
+// this device and defers Google to whenever a calendar action actually needs it.
+function SignInScreen({ onConnect, onGuest, busy, error }) {
   return (
     <div className="signin-card glass-solid fade-in">
-      <div className="signin-mark" />
-      <h1 className="signin-title">Stride</h1>
+      <div className="signin-brand">
+        <span className="signin-mark" />
+        <span className="signin-brandname">Stride</span>
+      </div>
+      <h1 className="signin-title">Catches you before<br />the deadline does.</h1>
       <p className="signin-sub">
-        The agent that catches you before deadlines collapse. Sign in to set up your week.
+        Your AI agent plans the week, drafts the work, and steps in when you fall behind.
       </p>
-      <button type="button" className="signin-btn" onClick={onConnect} disabled={busy}>
+      <button type="button" className="signin-google" onClick={onConnect} disabled={busy}>
+        <GoogleG />
         {busy ? 'Opening Google…' : 'Continue with Google'}
       </button>
+      <button type="button" className="signin-guest" onClick={onGuest} disabled={busy}>
+        Continue as guest
+      </button>
       {error && <p className="home-error signin-error">{error}</p>}
+      <p className="signin-foot">
+        Stride uses Google sign-in so it can add events straight to your calendar. Guest mode keeps
+        everything on this device.
+      </p>
     </div>
   );
 }
@@ -144,22 +168,38 @@ export default function App() {
   // authReady flips once Firebase has restored (or cleared) the signed-in user,
   // so a returning user is not flashed the sign-in screen on every load.
   const [authReady, setAuthReady] = useState(false);
+  // Guest mode is a local identity: no Google account, work stays on this device.
+  // It is sticky for the session so a later calendar sign-in does not bounce the
+  // user back through onboarding under a different identity.
+  const [guest, setGuest] = useState(() => {
+    try {
+      return localStorage.getItem('stride:guest') === '1';
+    } catch {
+      return false;
+    }
+  });
   const [onboarded, setOnboarded] = useState(false);
   const [view, setView] = useState('plan');
   // Bumping this key remounts the plan so a fresh capture is reflected.
   const [planKey, setPlanKey] = useState(0);
 
+  // The routing identity: a guest stays a guest even after a real Google sign-in
+  // (which calendar features may trigger), so onboarding is never re-shown.
+  const identity = guest ? GUEST_IDENTITY : user;
+
   useEffect(() => onAuthStateChanged(auth, () => setAuthReady(true)), []);
 
-  // Re-read the per-user onboarding flag whenever the signed-in user changes.
+  // Re-read the per-identity onboarding flag whenever the identity changes.
   useEffect(() => {
-    setOnboarded(readOnboarded(user));
-  }, [user]);
+    setOnboarded(readOnboarded(identity));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, guest]);
 
   // The phase is derived, never stored: loading -> signin -> onboarding -> ready.
+  // A guest skips the Firebase wait entirely.
   let phase;
-  if (!authReady) phase = 'loading';
-  else if (!user) phase = 'signin';
+  if (!authReady && !guest) phase = 'loading';
+  else if (!identity) phase = 'signin';
   else if (!onboarded) phase = 'onboarding';
   else phase = 'ready';
 
@@ -168,11 +208,20 @@ export default function App() {
     setView('plan');
   }
 
-  // Onboarding finished (real answers or the sample): remember it for this user on
-  // this device, then route into the app.
+  function continueAsGuest() {
+    try {
+      localStorage.setItem('stride:guest', '1');
+    } catch {
+      // ignore storage failures; guest still works for this session
+    }
+    setGuest(true);
+  }
+
+  // Onboarding finished (real answers or the sample): remember it for this
+  // identity on this device, then route into the app.
   function finishOnboarding() {
     try {
-      const key = onboardedKey(user);
+      const key = onboardedKey(identity);
       if (key) localStorage.setItem(key, '1');
     } catch {
       // ignore storage failures (private mode, etc.); the app still proceeds
@@ -205,6 +254,7 @@ export default function App() {
         <div className="signin-screen">
           <SignInScreen
             onConnect={() => connect().catch(() => {})}
+            onGuest={continueAsGuest}
             busy={authBusy}
             error={authError}
           />
