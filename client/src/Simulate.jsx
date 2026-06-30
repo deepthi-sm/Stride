@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import RescuePanel, { ChangeList, CascadeResult } from './RescuePanel.jsx';
+import { runJob } from './api.js';
 
 // The simulator: ask a free-form what-if and see the cascade, or ask Stride to
 // rescue the week when things are slipping.
@@ -15,13 +16,9 @@ export default function Simulate() {
     setError('');
     setResult(null);
     try {
-      const res = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not run that.');
+      // Runs as a backend job: this awaits the result by polling, and the work
+      // finishes on the server even if the tab goes inactive mid-run.
+      const data = await runJob('/api/simulate', { question: q });
       setResult(data);
     } catch (err) {
       setError(err.message);

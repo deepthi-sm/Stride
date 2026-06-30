@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { runJob } from './api.js';
 
 const CATEGORY_LABEL = {
   assignment: 'Assignment',
@@ -49,15 +50,9 @@ export default function Capture({ onCaptured }) {
     setBusy(true);
     setError('');
     try {
-      const res = await fetch('/api/capture', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: value }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Could not capture that.');
-      }
+      // Runs as a backend job: the Gemini parse finishes on the server even if
+      // the tab goes inactive while it works.
+      const data = await runJob('/api/capture', { text: value });
       const created = Array.isArray(data) ? data : [];
       // Newest on top.
       setTasks((prev) => [...created, ...prev]);

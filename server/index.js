@@ -20,11 +20,14 @@ const { parseTasks, breakDownTask, narrateRisk, runAction } = await import('./ag
 const { buildSchedule } = await import('./schedule.js');
 const { assessRisk, assessTasks } = await import('./risk.js');
 const { counterfactualPlan } = await import('./counterfactual.js');
+const { startJob, getJob } = await import('./jobs.js');
 
 // A task this size or larger is worth breaking into first steps.
 const BIG_TASK_MINS = 120;
 
-const PORT = process.env.PORT || 8080;
+// Default to 8787 locally. 8080 is intentionally avoided because a local Jenkins
+// (or other dev tool) commonly holds it. Cloud Run still injects PORT in prod.
+const PORT = process.env.PORT || 8787;
 
 // The built client lives at /client/dist, one level up from /server.
 const CLIENT_DIST = join(__dirname, '..', 'client', 'dist');
@@ -36,6 +39,84 @@ app.use(express.json());
 // API routes go before the static and catch-all handlers.
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });
+});
+
+// GET /api/jobs/:id -> poll a background job started by one of the AI endpoints.
+// While running it reports { status: 'running' }; when finished it returns the
+// result (the same shape the endpoint used to return inline) or the error. The
+// work runs to completion regardless of the client, so a tab that went inactive
+// just collects the result here when it comes back.
+app.get('/api/jobs/:id', (req, res) => {
+  const job = getJob(req.params.id);
+  if (!job) {
+    return res.status(404).json({ error: 'job not found or expired' });
+  }
+  if (job.status === 'done') {
+    return res.json({ status: 'done', result: job.result });
+  }
+  if (job.status === 'error') {
+    return res.json({ status: 'error', error: job.error });
+  }
+  res.json({ status: 'running' });
+});
+
+// The onboarding profile, validated against the six-question schema. Unknown or
+// missing answers are dropped rather than trusted, so the rest of the engine
+// (schedule, risk, action, rescue) only ever sees clean enum values.
+const PROFILE_ENUMS = {
+  role: ['student', 'professional', 'founder', 'other'],
+  productivityWindow: ['early_morning', 'afternoon', 'evening', 'late_night', 'varies'],
+  deadlineStyle: ['early', 'on_time', 'close', 'last_minute'],
+  slips: ['deadlines', 'messages', 'bills', 'goals', 'none'],
+  rescueStrategy: ['rebuild', 'protect', 'suggest_drop', 'draft_message'],
+};
+const SLOWDOWN_OPTIONS = ['underestimate', 'overwhelmed', 'distracted', 'avoid_starting', 'forgetful'];
+
+// Build a clean Profile from raw answers. Returns { profile } on success or
+// { error } when a required single-choice answer is missing or out of range.
+function sanitizeProfile(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return { error: 'profile must be an object of answers' };
+  }
+  const profile = {};
+  for (const [field, allowed] of Object.entries(PROFILE_ENUMS)) {
+    const value = raw[field];
+    if (!allowed.includes(value)) {
+      return { error: `${field} must be one of: ${allowed.join(', ')}` };
+    }
+    profile[field] = value;
+  }
+  // slowdowns is the one multi-select. Keep only known options, drop the rest,
+  // and allow an empty list (the user may say nothing slows them down).
+  const slowdowns = Array.isArray(raw.slowdowns) ? raw.slowdowns : [];
+  profile.slowdowns = SLOWDOWN_OPTIONS.filter((opt) => slowdowns.includes(opt));
+  return { profile };
+}
+
+// POST /api/profile { role, productivityWindow, deadlineStyle, slowdowns[],
+// slips, rescueStrategy } -> validate, store, return the saved profile.
+app.post('/api/profile', async (req, res) => {
+  try {
+    const { profile, error } = sanitizeProfile(req.body);
+    if (error) {
+      return res.status(400).json({ error });
+    }
+    await save('profile', profile);
+    res.json(profile);
+  } catch (err) {
+    console.error('profile save failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/profile -> the stored profile, or null before onboarding is done.
+app.get('/api/profile', async (req, res) => {
+  try {
+    res.json((await get('profile')) || null);
+  } catch (err) {
+    console.error('profile read failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Turn a parsed task (title, deadline, estEffortMins, dependencies, category)
@@ -58,21 +139,27 @@ function toStoredTask(parsed, now) {
   };
 }
 
-// POST /api/capture { text } -> parse with Gemini, store, return the new tasks.
+// POST /api/capture { text } -> start a background job that parses with Gemini
+// and stores the tasks. Returns { jobId } at once; the job's result is the new
+// tasks array (the same shape this used to return inline). The parse finishes on
+// the server even if the tab goes inactive; the client polls /api/jobs/:id.
 app.post('/api/capture', async (req, res) => {
   const text = (req.body?.text ?? '').toString().trim();
   if (!text) {
     return res.status(400).json({ error: 'text is required' });
   }
   try {
-    const parsed = await parseTasks(text);
-    const now = new Date().toISOString();
-    const created = parsed.map((p) => toStoredTask(p, now));
-    const existing = (await get('tasks')) || [];
-    await save('tasks', existing.concat(created));
-    res.json(created);
+    const jobId = startJob(async () => {
+      const parsed = await parseTasks(text);
+      const now = new Date().toISOString();
+      const created = parsed.map((p) => toStoredTask(p, now));
+      const existing = (await get('tasks')) || [];
+      await save('tasks', existing.concat(created));
+      return created;
+    });
+    res.status(202).json({ jobId });
   } catch (err) {
-    console.error('capture failed:', err.message);
+    console.error('capture failed to start:', err.message);
     res.status(502).json({ error: err.message });
   }
 });
@@ -227,20 +314,25 @@ app.get('/api/plan', async (req, res) => {
   }
 });
 
-// POST /api/simulate { question } -> the counterfactual result. An empty or
-// missing question runs a system rescue using the profile's strategy.
-app.post('/api/simulate', async (req, res) => {
+// POST /api/simulate { question } -> start a background job for the
+// counterfactual. Returns { jobId } at once; the job's result is the same
+// counterfactual object as before. An empty or missing question runs a system
+// rescue using the profile's strategy. The Gemini work and recompute finish on
+// the server even if the tab is backgrounded; the client polls /api/jobs/:id.
+app.post('/api/simulate', (req, res) => {
   try {
     const question = (req.body?.question ?? '').toString();
-    const state = {
-      tasks: (await get('tasks')) || [],
-      profile: await get('profile'),
-      signals: await get('signals'),
-    };
-    const result = await counterfactualPlan(state, question);
-    res.json(result);
+    const jobId = startJob(async () => {
+      const state = {
+        tasks: (await get('tasks')) || [],
+        profile: await get('profile'),
+        signals: await get('signals'),
+      };
+      return counterfactualPlan(state, question);
+    });
+    res.status(202).json({ jobId });
   } catch (err) {
-    console.error('simulate failed:', err.message);
+    console.error('simulate failed to start:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -265,12 +357,18 @@ app.post('/api/tasks/:id/status', async (req, res) => {
     task.lastTouchedAt = new Date().toISOString();
     await save('tasks', tasks);
 
+    // The status change itself is saved synchronously above. The rescue is the
+    // slow part (Gemini plus recompute), so run it as a background job and hand
+    // back its id. The rescue completes on the server even if the tab goes
+    // inactive; the client polls /api/jobs/:id for it.
     if (status === 'slipping') {
-      const result = await counterfactualPlan(
-        { tasks, profile: await get('profile'), signals: await get('signals') },
-        '' // empty question triggers the rescue
+      const rescueJobId = startJob(async () =>
+        counterfactualPlan(
+          { tasks, profile: await get('profile'), signals: await get('signals') },
+          '' // empty question triggers the rescue
+        )
       );
-      return res.json({ task, rescue: result });
+      return res.json({ task, rescueJobId });
     }
     res.json({ task });
   } catch (err) {
@@ -279,8 +377,11 @@ app.post('/api/tasks/:id/status', async (req, res) => {
   }
 });
 
-// POST /api/tasks/:id/action -> run the Auto-Action Engine for the task, store
-// the deliverable on it, and return it.
+// POST /api/tasks/:id/action -> start a background job that runs the Auto-Action
+// Engine, stores the deliverable on the task, and returns { task, deliverableType,
+// deliverable } (the same shape as before) as the job result. Returns { jobId }
+// at once. The Gemini draft finishes on the server even if the tab is inactive;
+// the client polls /api/jobs/:id.
 app.post('/api/tasks/:id/action', async (req, res) => {
   try {
     const tasks = (await get('tasks')) || [];
@@ -289,15 +390,18 @@ app.post('/api/tasks/:id/action', async (req, res) => {
       return res.status(404).json({ error: 'task not found' });
     }
 
-    const { deliverableType, deliverable } = await runAction(task, await get('profile'));
-    task.deliverableType = deliverableType;
-    task.deliverable = deliverable;
-    task.lastTouchedAt = new Date().toISOString();
-    await save('tasks', tasks);
+    const jobId = startJob(async () => {
+      const { deliverableType, deliverable } = await runAction(task, await get('profile'));
+      task.deliverableType = deliverableType;
+      task.deliverable = deliverable;
+      task.lastTouchedAt = new Date().toISOString();
+      await save('tasks', tasks);
+      return { task, deliverableType, deliverable };
+    });
 
-    res.json({ task, deliverableType, deliverable });
+    res.status(202).json({ jobId });
   } catch (err) {
-    console.error('action failed:', err.message);
+    console.error('action failed to start:', err.message);
     res.status(502).json({ error: err.message });
   }
 });

@@ -2,7 +2,3 @@
 node_modules
 client/dist
 data.json
-
-# Local planning docs, not part of the app
-CLAUDE.md
-plans/

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CopyButton } from './RescuePanel.jsx';
+import { runJob } from './api.js';
 
 const TYPE_LABEL = {
   draft_email: 'Draft email',
@@ -19,9 +20,9 @@ export default function TaskDetail({ task, onBack }) {
     setBusy(true);
     setError('');
     try {
-      const res = await fetch(`/api/tasks/${task.id}/action`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not draft that.');
+      // Runs as a backend job: the draft finishes on the server even if the tab
+      // goes inactive while Gemini is writing it.
+      const data = await runJob(`/api/tasks/${task.id}/action`);
       setType(data.deliverableType);
       setText(data.deliverable);
     } catch (err) {

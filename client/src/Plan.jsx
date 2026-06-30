@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import RescuePanel from './RescuePanel.jsx';
 import TaskDetail from './TaskDetail.jsx';
+import { AddToCalendarButton, SyncPlanButton } from './CalendarButtons.jsx';
+import { pollJob } from './api.js';
 
 const CATEGORY_LABEL = {
   assignment: 'Assignment',
@@ -101,7 +103,10 @@ export default function Plan() {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Could not reach the rescue.');
-      setRescue(data.rescue);
+      // The rescue runs as a backend job; poll for it so it completes on the
+      // server even if the tab goes inactive. (data.rescue kept as a fallback.)
+      const rescue = data.rescueJobId ? await pollJob(data.rescueJobId) : data.rescue;
+      setRescue(rescue);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -150,6 +155,8 @@ export default function Plan() {
   return (
     <div className="panel">
       <h1 className="wordmark">Your plan</h1>
+
+      <SyncPlanButton tasks={tasks} />
 
       {rescue && <RescuePanel result={rescue} onDismiss={dismissRescue} />}
 
@@ -203,6 +210,7 @@ export default function Plan() {
                   >
                     {slipId === t.id ? 'Reaching for a rescue…' : 'I am slipping'}
                   </button>
+                  <AddToCalendarButton task={t} />
                 </div>
               </div>
             </div>

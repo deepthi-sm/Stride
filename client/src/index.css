@@ -758,3 +758,415 @@ body {
   font-size: 0.82rem;
   opacity: 0.6;
 }
+
+/* --- Module 6: onboarding --- */
+
+.onboarding {
+  gap: 1.5rem;
+}
+
+.ob-top {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.ob-back {
+  flex: none;
+  width: 2.1rem;
+  height: 2.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: #b7b6cc;
+  background: #16172a;
+  border: 1px solid #2a2c45;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ob-back:hover:not(:disabled) {
+  color: #ffffff;
+  border-color: #8b7fe8;
+}
+
+.ob-dots {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.ob-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #2a2c45;
+  transition: background 0.25s ease, width 0.25s ease;
+}
+
+.ob-dot.done {
+  background: #5b53a0;
+}
+
+.ob-dot.active {
+  width: 1.4rem;
+  background: #8b7fe8;
+}
+
+.ob-count {
+  flex: none;
+  width: 2.6rem;
+  text-align: right;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: #8a8ba6;
+}
+
+/* The sliding stage clips the horizontal slide so it never scrolls the page. */
+.ob-stage {
+  overflow: hidden;
+}
+
+.ob-card {
+  width: 100%;
+}
+
+.slide-next {
+  animation: ob-slide-next 0.28s ease;
+}
+
+.slide-back {
+  animation: ob-slide-back 0.28s ease;
+}
+
+@keyframes ob-slide-next {
+  from {
+    opacity: 0;
+    transform: translateX(36px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ob-slide-back {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.ob-question,
+.ob-reflection {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ob-title {
+  margin: 0;
+  font-size: clamp(1.4rem, 5vw, 1.85rem);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.ob-hint {
+  margin: -0.5rem 0 0;
+  font-size: 0.9rem;
+  opacity: 0.6;
+}
+
+.ob-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.ob-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  padding: 1rem 1.1rem;
+  font: inherit;
+  font-size: 1rem;
+  color: #e7e6f3;
+  background: #16172a;
+  border: 1px solid #2a2c45;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ob-option:hover {
+  border-color: #4a4790;
+}
+
+.ob-option.on {
+  border-color: #8b7fe8;
+  background: #1d1d39;
+  box-shadow: 0 0 22px rgba(139, 127, 232, 0.18);
+}
+
+.ob-option-label {
+  min-width: 0;
+}
+
+.ob-check {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: #ffffff;
+  border: 1px solid #3a356a;
+  border-radius: 999px;
+}
+
+.ob-option.on .ob-check {
+  background: #8b7fe8;
+  border-color: #8b7fe8;
+}
+
+.ob-continue,
+.ob-start {
+  align-self: center;
+  margin-top: 0.4rem;
+  padding: 0.75rem 2.4rem;
+  font: inherit;
+  font-weight: 600;
+  color: #ffffff;
+  background: #8b7fe8;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 0 24px rgba(139, 127, 232, 0.35);
+}
+
+.ob-continue:disabled,
+.ob-start:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
+.ob-skip {
+  align-self: center;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #8a8ba6;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ob-skip:hover:not(:disabled) {
+  color: #b3aef0;
+}
+
+.ob-skip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ob-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8b7fe8;
+}
+
+.ob-summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ob-summary-line {
+  padding: 0.85rem 1rem;
+  font-size: 0.96rem;
+  line-height: 1.45;
+  color: #d9d8ea;
+  background: #16172a;
+  border: 1px solid #2a2c45;
+  border-left: 2px solid #8b7fe8;
+  border-radius: 12px;
+}
+
+/* --- Google Calendar: sign-in entry point and add/sync buttons --- */
+
+.cal-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: -0.5rem;
+  font-size: 0.85rem;
+}
+
+.cal-connect {
+  padding: 0.4rem 1rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #b3aef0;
+  background: rgba(139, 127, 232, 0.12);
+  border: 1px solid #3a356a;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.cal-connect:hover {
+  color: #ffffff;
+  background: #8b7fe8;
+  border-color: #8b7fe8;
+}
+
+.cal-connect:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cal-status-on {
+  color: #8b7fe8;
+  font-weight: 600;
+}
+
+.cal-status-email {
+  color: #8a8ba6;
+}
+
+.cal-status-link {
+  padding: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #8a8ba6;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cal-status-link:hover {
+  color: #e5a26f;
+}
+
+.cal-status-error {
+  color: #e5a26f;
+  width: 100%;
+  text-align: center;
+}
+
+/* Per-task add button, sits in the task action row */
+.cal-add-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cal-add-btn {
+  padding: 0.4rem 0.9rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #b3aef0;
+  background: transparent;
+  border: 1px solid #3a356a;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.cal-add-btn:hover {
+  color: #ffffff;
+  background: #8b7fe8;
+  border-color: #8b7fe8;
+}
+
+.cal-add-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cal-add-ok {
+  font-size: 0.8rem;
+  color: #8b7fe8;
+}
+
+.cal-add-link {
+  color: #b3aef0;
+  text-underline-offset: 3px;
+}
+
+.cal-add-err {
+  font-size: 0.8rem;
+  color: #e5a26f;
+}
+
+/* Sync the whole plan, near the top of the plan screen */
+.cal-sync {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cal-sync-btn {
+  padding: 0.55rem 1.2rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: #8b7fe8;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgba(139, 127, 232, 0.35);
+}
+
+.cal-sync-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
+}
+
+.cal-sync-ok {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #8b7fe8;
+}
+
+.cal-sync-err {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #e5a26f;
+}
+
+.cal-sync-skipped {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  color: #8a8ba6;
+  align-self: stretch;
+}
