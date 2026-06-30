@@ -1,6 +1,6 @@
 # counterfactual prompt (simulator and rescue)
 
-Model: gemini-3.5-flash. Two Gemini calls wrap a code core. Half A reads the
+Model: gemini-2.5-flash-lite. Two Gemini calls wrap a code core. Half A reads the
 what-if and returns concrete changes. Code applies them to a copy of the task
 graph and recomputes buildSchedule and assessRisk. Half B narrates the before
 and after. The backend prepends the current date to every call.

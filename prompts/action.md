@@ -1,6 +1,6 @@
 # action prompt (the Auto-Action Engine)
 
-Model: gemini-3.5-flash. Produces the actual first deliverable for one specific
+Model: gemini-2.5-flash-lite. Produces the actual first deliverable for one specific
 task, not a reminder. The backend prepends the current date, the task's real
 details (title, deadline, risk level, category, effort), and the requested
 deliverable type to every call.
