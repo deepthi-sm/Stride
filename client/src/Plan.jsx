@@ -96,7 +96,16 @@ export default function Plan({ name }) {
 
   // Drilled into one task: the real TaskDetail (its own design pass comes later).
   if (detailTask) {
-    return <TaskDetail task={detailTask} onBack={() => setDetailTask(null)} />;
+    return (
+      <TaskDetail
+        task={detailTask}
+        onBack={(changed) => {
+          setDetailTask(null);
+          // A completed task leaves the active plan, so refresh only when changed.
+          if (changed) loadPlan();
+        }}
+      />
+    );
   }
 
   if (busy) {

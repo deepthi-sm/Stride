@@ -608,8 +608,45 @@
   font-weight: 700;
   letter-spacing: -0.6px;
   line-height: 1.15;
-  margin: 0 0 26px;
+  margin: 0 0 18px;
 }
+.dd-complete {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 15px 18px;
+  margin: 0 0 26px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s;
+}
+.dd-complete:hover { border-color: var(--accentBorder); }
+.dd-complete:disabled { opacity: 0.7; cursor: default; }
+.dd-complete.done { background: var(--accentField); border-color: var(--accentBorder); }
+.dd-complete-check {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: var(--field);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: all 0.18s;
+}
+.dd-complete.done .dd-complete-check { background: var(--accent); border-color: var(--accent); box-shadow: var(--glow); }
+.dd-complete-label { font-size: 15px; font-weight: 600; flex: 1; }
+.dd-complete-note { font-size: 12.5px; font-weight: 600; color: var(--accent); flex-shrink: 0; }
+.dd-complete-err { text-align: left; margin: -14px 2px 22px; }
+
 .dd-section-label { font-size: 15px; font-weight: 600; margin: 0 0 13px; }
 .dd-section-label.flush { margin: 0; }
 .dd-steps { display: flex; flex-direction: column; gap: 11px; margin-bottom: 28px; }

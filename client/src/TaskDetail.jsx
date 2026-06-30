@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCalendar } from './CalendarContext.jsx';
 import { addTaskToCalendar } from './calendar.js';
 import { runJob } from './api.js';
@@ -29,6 +29,26 @@ function friendlyError(msg) {
     return "Stride has reached today's AI limit (the free Gemini tier allows 20 requests a day). Your next steps are ready above; the draft will come back once the limit resets.";
   }
   return msg || 'Something went wrong.';
+}
+
+// The "Next steps" checkboxes are a personal checklist, kept on the device per
+// task so they survive leaving and reopening the task.
+function stepsKey(id) {
+  return `stride:steps:${id}`;
+}
+function readSteps(id) {
+  try {
+    return JSON.parse(localStorage.getItem(stepsKey(id))) || {};
+  } catch {
+    return {};
+  }
+}
+function writeSteps(id, checked) {
+  try {
+    localStorage.setItem(stepsKey(id), JSON.stringify(checked));
+  } catch {
+    // ignore storage failures; the ticks just will not persist
+  }
 }
 
 // "Due today, 5:00 PM" style. The day is relative when it is close; a real
@@ -139,9 +159,39 @@ export default function TaskDetail({ task, onBack }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
-  const [checked, setChecked] = useState({});
+  const [checked, setChecked] = useState(() => readSteps(task.id));
+  const [completed, setCompleted] = useState(task.status === 'done');
+  const [completing, setCompleting] = useState(false);
+  const [completeErr, setCompleteErr] = useState('');
+  // Whether we changed the task's status this visit, so the plan refreshes on back.
+  const changed = useRef(false);
 
   const steps = Array.isArray(task.subtasks) ? task.subtasks : [];
+
+  // Mark the task done (or undo it). Done tasks earn Momentum Points on the trail,
+  // computed from real completions; this uses the existing status endpoint, so no
+  // Gemini call and no server change.
+  async function toggleComplete() {
+    if (completing) return;
+    const next = !completed;
+    setCompleting(true);
+    setCompleteErr('');
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: next ? 'done' : 'todo' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not update the task.');
+      setCompleted(next);
+      changed.current = true;
+    } catch (err) {
+      setCompleteErr(friendlyError(err.message));
+    } finally {
+      setCompleting(false);
+    }
+  }
 
   // Generate a fresh draft (a real Gemini request). Used on first open and when
   // the user taps Regenerate.
@@ -188,12 +238,16 @@ export default function TaskDetail({ task, onBack }) {
   }, [task.id]);
 
   function toggleStep(i) {
-    setChecked((c) => ({ ...c, [i]: !c[i] }));
+    setChecked((c) => {
+      const next = { ...c, [i]: !c[i] };
+      writeSteps(task.id, next);
+      return next;
+    });
   }
 
   return (
     <div className="dd fade-in">
-      <button type="button" className="dd-back" onClick={onBack}>
+      <button type="button" className="dd-back" onClick={() => onBack(changed.current)}>
         ‹ Back
       </button>
 
@@ -202,6 +256,20 @@ export default function TaskDetail({ task, onBack }) {
         <span className="dd-due">{formatDue(task)}</span>
       </div>
       <h1 className="dd-title">{task.title}</h1>
+
+      <button
+        type="button"
+        className={`dd-complete${completed ? ' done' : ''}`}
+        onClick={toggleComplete}
+        disabled={completing}
+      >
+        <span className="dd-complete-check">{completed && <CheckGlyph />}</span>
+        <span className="dd-complete-label">
+          {completing ? 'Saving…' : completed ? 'Completed' : 'Mark this task complete'}
+        </span>
+        {completed && <span className="dd-complete-note">Points added to your trail</span>}
+      </button>
+      {completeErr && <p className="dd-cal-err dd-complete-err">{completeErr}</p>}
 
       <h2 className="dd-section-label">Next steps</h2>
       {steps.length === 0 ? (
