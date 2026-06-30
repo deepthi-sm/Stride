@@ -634,9 +634,33 @@ body {
   cursor: pointer;
 }
 
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.7rem;
+}
+
+.draft-btn {
+  padding: 0.4rem 0.9rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #b3aef0;
+  background: rgba(139, 127, 232, 0.12);
+  border: 1px solid #3a356a;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.draft-btn:hover {
+  color: #ffffff;
+  background: #8b7fe8;
+  border-color: #8b7fe8;
+}
+
 .slip-btn {
-  align-self: flex-start;
-  margin-top: 0.6rem;
   padding: 0.3rem 0;
   font: inherit;
   font-size: 0.82rem;
@@ -655,4 +679,82 @@ body {
 .slip-btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* --- Module 5: task detail and deliverable --- */
+
+.back-btn {
+  align-self: flex-start;
+  padding: 0.3rem 0;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #b3aef0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.detail-title {
+  margin: 0;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.detail-type {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b7fe8;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #3a356a;
+  background: rgba(139, 127, 232, 0.12);
+}
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.detail-box {
+  width: 100%;
+  resize: vertical;
+  padding: 1rem;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #f4f3fb;
+  background: #16172a;
+  border: 1px solid #2a2c45;
+  border-radius: 14px;
+  outline: none;
+  white-space: pre-wrap;
+}
+
+.detail-box:focus {
+  border-color: #8b7fe8;
+}
+
+.detail-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+  opacity: 0.6;
 }

@@ -16,7 +16,7 @@ loadEnv({ path: join(__dirname, '..', '.env') });
 loadEnv({ path: join(__dirname, '.env') });
 
 const { get, save } = await import('./store.js');
-const { parseTasks, breakDownTask, narrateRisk } = await import('./agent.js');
+const { parseTasks, breakDownTask, narrateRisk, runAction } = await import('./agent.js');
 const { buildSchedule } = await import('./schedule.js');
 const { assessRisk, assessTasks } = await import('./risk.js');
 const { counterfactualPlan } = await import('./counterfactual.js');
@@ -271,6 +271,29 @@ app.post('/api/tasks/:id/status', async (req, res) => {
   } catch (err) {
     console.error('status update failed:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/tasks/:id/action -> run the Auto-Action Engine for the task, store
+// the deliverable on it, and return it.
+app.post('/api/tasks/:id/action', async (req, res) => {
+  try {
+    const tasks = get('tasks') || [];
+    const task = tasks.find((t) => t.id === req.params.id);
+    if (!task) {
+      return res.status(404).json({ error: 'task not found' });
+    }
+
+    const { deliverableType, deliverable } = await runAction(task, get('profile'));
+    task.deliverableType = deliverableType;
+    task.deliverable = deliverable;
+    task.lastTouchedAt = new Date().toISOString();
+    save('tasks', tasks);
+
+    res.json({ task, deliverableType, deliverable });
+  } catch (err) {
+    console.error('action failed:', err.message);
+    res.status(502).json({ error: err.message });
   }
 });
 

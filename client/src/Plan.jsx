@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import RescuePanel from './RescuePanel.jsx';
+import TaskDetail from './TaskDetail.jsx';
 
 const CATEGORY_LABEL = {
   assignment: 'Assignment',
@@ -67,6 +68,7 @@ export default function Plan() {
   const [error, setError] = useState('');
   const [rescue, setRescue] = useState(null);
   const [slipId, setSlipId] = useState('');
+  const [detailTask, setDetailTask] = useState(null);
 
   async function loadPlan() {
     setBusy(true);
@@ -140,6 +142,11 @@ export default function Plan() {
     );
   }
 
+  // Drilled into one task: Stride drafts the first piece of the work.
+  if (detailTask) {
+    return <TaskDetail task={detailTask} onBack={() => { setDetailTask(null); loadPlan(); }} />;
+  }
+
   return (
     <div className="panel">
       <h1 className="wordmark">Your plan</h1>
@@ -180,14 +187,23 @@ export default function Plan() {
                 <p className="plan-next-step">
                   <span className="plan-next-label">Next step</span> {t.nextStep}
                 </p>
-                <button
-                  type="button"
-                  className="slip-btn"
-                  onClick={() => markSlipping(t.id)}
-                  disabled={!!slipId}
-                >
-                  {slipId === t.id ? 'Reaching for a rescue…' : 'I am slipping on this'}
-                </button>
+                <div className="task-actions">
+                  <button
+                    type="button"
+                    className="draft-btn"
+                    onClick={() => setDetailTask(t)}
+                  >
+                    Draft this for me
+                  </button>
+                  <button
+                    type="button"
+                    className="slip-btn"
+                    onClick={() => markSlipping(t.id)}
+                    disabled={!!slipId}
+                  >
+                    {slipId === t.id ? 'Reaching for a rescue…' : 'I am slipping'}
+                  </button>
+                </div>
               </div>
             </div>
           </li>

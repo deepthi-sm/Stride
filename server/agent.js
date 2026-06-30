@@ -18,6 +18,7 @@ const PARSE_PROMPT_PATH = join(PROMPTS_DIR, 'parse.md');
 const BREAKDOWN_PROMPT_PATH = join(PROMPTS_DIR, 'breakdown.md');
 const RISK_PROMPT_PATH = join(PROMPTS_DIR, 'risk.md');
 const COUNTERFACTUAL_PROMPT_PATH = join(PROMPTS_DIR, 'counterfactual.md');
+const ACTION_PROMPT_PATH = join(PROMPTS_DIR, 'action.md');
 
 let ai = null;
 function client() {
@@ -267,4 +268,58 @@ export async function narrateCounterfactual(context, guidance = '') {
 // to Gemini as guidance for the rescue framing.
 export function rescueGuidance() {
   return loadCounterfactualPrompt().rescue;
+}
+
+const DELIVERABLE_ENUM = new Set(['draft_email', 'checklist', 'prep_doc']);
+
+// runAction(task, profile) -> { deliverableType, deliverable }
+// The Auto-Action Engine: produce the first real deliverable for a task, matched
+// to the profile's tone and role. The current date is injected so dates in a
+// drafted email or prep doc are grounded.
+export async function runAction(task, profile) {
+  const { systemInstruction, schema } = loadPrompt(ACTION_PROMPT_PATH);
+
+  const profileLines = profile
+    ? [
+        `Role: ${profile.role || 'unknown'}`,
+        `Productivity window: ${profile.productivityWindow || 'unknown'}`,
+        `Deadline style: ${profile.deadlineStyle || 'unknown'}`,
+      ].join('\n')
+    : 'No profile yet. Assume a student and keep the tone friendly but clear.';
+
+  const details = [
+    `Title: ${task.title}`,
+    `Category: ${task.category || 'other'}`,
+    task.deadline ? `Deadline: ${task.deadline}` : 'Deadline: none',
+    task.estEffortMins ? `Estimated effort: ${task.estEffortMins} minutes` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const response = await client().models.generateContent({
+    model: MODEL,
+    contents: `Current date: ${today()}\n\nUser profile:\n${profileLines}\n\nTask:\n${details}`,
+    config: {
+      systemInstruction,
+      responseMimeType: 'application/json',
+      responseSchema: schema,
+      temperature: 0.4,
+    },
+  });
+
+  const raw = (response.text || '').trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('Model did not return valid JSON for runAction');
+  }
+  const deliverableType = DELIVERABLE_ENUM.has(parsed?.deliverableType)
+    ? parsed.deliverableType
+    : 'prep_doc';
+  const deliverable = parsed?.deliverable ? String(parsed.deliverable).trim() : '';
+  if (!deliverable) {
+    throw new Error('Model returned an empty deliverable for runAction');
+  }
+  return { deliverableType, deliverable };
 }
