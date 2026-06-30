@@ -492,6 +492,166 @@
 .home-error { color: var(--amber); font-size: 15px; line-height: 1.55; margin: 0; }
 .state-card { padding: 24px 26px; }
 
+/* ----- task detail ----- */
+.dd-back {
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-size: 15px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 18px;
+}
+.dd-back:hover { color: var(--text); }
+.dd-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.dd-due { color: var(--amber); font-weight: 600; font-size: 14.5px; }
+.dd-title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+  margin: 0 0 26px;
+}
+.dd-section-label { font-size: 15px; font-weight: 600; margin: 0 0 13px; }
+.dd-section-label.flush { margin: 0; }
+.dd-steps { display: flex; flex-direction: column; gap: 11px; margin-bottom: 28px; }
+.dd-step {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  text-align: left;
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 17px 18px;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color 0.2s;
+}
+.dd-step:hover { border-color: var(--accentBorder); }
+.dd-check {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: var(--field);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: all 0.18s;
+}
+.dd-step.checked .dd-check {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+.dd-step-text { font-size: 15px; line-height: 1.45; }
+.dd-step.checked .dd-step-text { color: var(--dim); text-decoration: line-through; }
+.dd-step-empty { padding: 18px 20px; margin-bottom: 28px; }
+
+.dd-draft-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+}
+.dd-stride-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+}
+.dd-stride-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: var(--glow);
+}
+.dd-draft-panel {
+  background: var(--solid);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 22px;
+}
+.dd-draft-state { color: var(--dim); font-size: 14.5px; margin: 6px 2px; }
+.dd-draft-error { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.dd-textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  resize: vertical;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  outline: none;
+  min-height: 220px;
+}
+.dd-draft-actions { display: flex; gap: 10px; margin-top: 14px; }
+.dd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--field);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.dd-pill:hover { border-color: var(--accentBorder); }
+
+.dd-cal-wrap { margin-top: 4px; }
+.dd-cal {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  padding: 17px 22px;
+  font-weight: 700;
+  font-size: 16px;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--glowSoft);
+}
+.dd-cal:disabled { opacity: 0.75; cursor: default; }
+.dd-cal.done {
+  background: var(--accentField);
+  border: 1px solid var(--accentBorder);
+  color: var(--accent);
+  cursor: default;
+  box-shadow: none;
+}
+.dd-cal-link { color: var(--accent); font-weight: 600; text-decoration: underline; margin-left: 4px; }
+.dd-cal-err { color: var(--amber); font-size: 13.5px; margin: 10px 2px 0; text-align: center; }
+
 /* ----- coming-soon placeholder for screens not yet restyled ----- */
 .coming-soon {
   padding: 40px 30px;

@@ -1,28 +1,144 @@
 import { useEffect, useState } from 'react';
-import { CopyButton } from './RescuePanel.jsx';
-import { AddToCalendarButton } from './CalendarButtons.jsx';
+import { useCalendar } from './CalendarContext.jsx';
+import { addTaskToCalendar } from './calendar.js';
 import { runJob } from './api.js';
 
-const TYPE_LABEL = {
-  draft_email: 'Draft email',
-  checklist: 'Checklist',
-  prep_doc: 'Prep doc',
+// The task detail screen, restyled to the design. The data and behavior are real:
+//   - "Next steps" are the task's stored subtasks (broken down on the server).
+//   - "Drafted by Stride" is the live Auto-Action Engine output, fetched through
+//     the existing job path (POST /api/tasks/:id/action via runJob), editable in
+//     place, copyable, and regenerable.
+//   - "Add to my Google Calendar" writes a real event through the existing
+//     calendar wiring and only flips to its confirmed state once the write lands.
+
+const RISK_LABEL = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' };
+const RISK_CLASS = (band) => (['low', 'medium', 'high', 'critical'].includes(band) ? band : 'low');
+
+// Section heading for the deliverable, by type. The "Drafted by Stride" badge on
+// the right stays constant; this is the left-hand label.
+const DRAFT_LABEL = {
+  draft_email: 'Drafted email',
+  checklist: 'Drafted checklist',
+  prep_doc: 'Drafted prep doc',
 };
 
-// The task detail view: Stride does the first piece of the work. The deliverable
-// is editable so you can tweak it before you copy it out.
+// "Due today, 5:00 PM" style. The day is relative when it is close; a real
+// scheduled start time is appended when the plan placed one, otherwise just the
+// day (no invented time).
+function formatDue(task) {
+  if (!task.deadline) return 'No deadline';
+  const d = new Date(task.deadline + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return `Due ${task.deadline}`;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((d - today) / 86400000);
+  let day;
+  if (diff === 0) day = 'today';
+  else if (diff === 1) day = 'tomorrow';
+  else if (diff === -1) day = 'yesterday';
+  else if (diff > 1 && diff < 7) day = d.toLocaleDateString(undefined, { weekday: 'long' });
+  else day = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  let time = '';
+  if (typeof task.start === 'string' && /^\d{1,2}:\d{2}$/.test(task.start)) {
+    const t = new Date(`${task.deadline}T${task.start}:00`);
+    if (!Number.isNaN(t.getTime())) {
+      time = `, ${t.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+    }
+  }
+  return `Due ${day}${time}`;
+}
+
+function CheckGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6">
+      <path d="M5 12.5l4.5 4.5L19 7" />
+    </svg>
+  );
+}
+
+// Copy the draft to the clipboard with a brief "Copied" confirmation.
+function CopyDraftButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text || '');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+  return (
+    <button type="button" className="dd-pill" onClick={copy}>
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  );
+}
+
+// The real calendar write, styled to the design. Flips to a confirmed state only
+// after the event actually lands in the user's Google Calendar.
+function AddToCalendar({ task }) {
+  const { runWithToken } = useCalendar();
+  const [state, setState] = useState('idle'); // idle | working | done | error
+  const [msg, setMsg] = useState('');
+  const [link, setLink] = useState('');
+
+  async function add() {
+    if (state === 'working' || state === 'done') return;
+    setState('working');
+    setMsg('');
+    setLink('');
+    try {
+      const event = await runWithToken((token) => addTaskToCalendar(token, task));
+      setLink(event?.htmlLink || '');
+      setState('done');
+    } catch (err) {
+      setMsg(err.message);
+      setState('error');
+    }
+  }
+
+  if (state === 'done') {
+    return (
+      <div className="dd-cal-wrap">
+        <div className="dd-cal done">
+          <CheckGlyph />
+          <span>Added to your Google Calendar</span>
+          {link && (
+            <a href={link} target="_blank" rel="noreferrer" className="dd-cal-link">
+              View
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dd-cal-wrap">
+      <button type="button" className="dd-cal" onClick={add} disabled={state === 'working'}>
+        {state === 'working' ? 'Adding to your calendar…' : 'Add to my Google Calendar'}
+      </button>
+      {state === 'error' && <p className="dd-cal-err">{msg}</p>}
+    </div>
+  );
+}
+
 export default function TaskDetail({ task, onBack }) {
   const [type, setType] = useState('');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
+  const [checked, setChecked] = useState({});
+
+  const steps = Array.isArray(task.subtasks) ? task.subtasks : [];
 
   async function generate() {
     setBusy(true);
     setError('');
     try {
-      // Runs as a backend job: the draft finishes on the server even if the tab
-      // goes inactive while Gemini is writing it.
+      // Runs as a backend job so the draft finishes even if the tab goes inactive.
       const data = await runJob(`/api/tasks/${task.id}/action`);
       setType(data.deliverableType);
       setText(data.deliverable);
@@ -38,40 +154,92 @@ export default function TaskDetail({ task, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.id]);
 
+  function toggleStep(i) {
+    setChecked((c) => ({ ...c, [i]: !c[i] }));
+  }
+
   return (
-    <div className="panel">
-      <button type="button" className="back-btn" onClick={onBack}>
-        ← Back to plan
+    <div className="dd fade-in">
+      <button type="button" className="dd-back" onClick={onBack}>
+        ‹ Back
       </button>
-      <h2 className="detail-title">{task.title}</h2>
 
-      {busy && <p className="prompt">Drafting the first move…</p>}
-      {error && <p className="error">{error}</p>}
+      <div className="dd-head">
+        <span className={`risk-chip ${RISK_CLASS(task.riskBand)}`}>{RISK_LABEL[task.riskBand] || 'Low'}</span>
+        <span className="dd-due">{formatDue(task)}</span>
+      </div>
+      <h1 className="dd-title">{task.title}</h1>
 
-      {!busy && !error && (
-        <section className="detail">
-          <div className="detail-head">
-            <span className="detail-type">{TYPE_LABEL[type] || 'Draft'}</span>
-            <div className="detail-actions">
-              <CopyButton text={text} />
-              <button type="button" className="link-btn" onClick={generate}>
+      <h2 className="dd-section-label">Next steps</h2>
+      {steps.length === 0 ? (
+        <div className="glass dd-step-empty">
+          <p className="home-note">Steps appear once Stride breaks this task down.</p>
+        </div>
+      ) : (
+        <div className="dd-steps">
+          {steps.map((step, i) => (
+            <button
+              key={i}
+              type="button"
+              className={`dd-step${checked[i] ? ' checked' : ''}`}
+              onClick={() => toggleStep(i)}
+            >
+              <span className="dd-check" aria-hidden="true">{checked[i] && <CheckGlyph />}</span>
+              <span className="dd-step-text">{step}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="dd-draft-head">
+        <h2 className="dd-section-label flush">{DRAFT_LABEL[type] || 'Draft'}</h2>
+        <span className="dd-stride-badge">
+          <span className="dot" />
+          Drafted by Stride
+        </span>
+      </div>
+
+      <div className="dd-draft-panel">
+        {busy ? (
+          <p className="dd-draft-state">Drafting the first move…</p>
+        ) : error ? (
+          <div className="dd-draft-error">
+            <p className="home-error">{error}</p>
+            <button type="button" className="dd-pill" onClick={generate}>
+              <RegenIcon />
+              Try again
+            </button>
+          </div>
+        ) : (
+          <>
+            <textarea
+              className="dd-textarea"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={12}
+              spellCheck={false}
+            />
+            <div className="dd-draft-actions">
+              <CopyDraftButton text={text} />
+              <button type="button" className="dd-pill" onClick={generate}>
+                <RegenIcon />
                 Regenerate
               </button>
             </div>
-          </div>
-          <textarea
-            className="detail-box"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={16}
-          />
-          <p className="detail-hint">Edit anything you like, then copy it out.</p>
-        </section>
-      )}
-
-      <div className="task-actions">
-        <AddToCalendarButton task={task} />
+          </>
+        )}
       </div>
+
+      <AddToCalendar task={task} />
     </div>
+  );
+}
+
+function RegenIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 11a8 8 0 10-2.3 5.7" />
+      <path d="M20 4v6h-6" />
+    </svg>
   );
 }
