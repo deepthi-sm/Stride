@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const MODEL = 'gemini-3.5-flash';
+const MODEL = 'gemini-2.5-flash-lite';
 const PROMPTS_DIR = join(__dirname, '..', 'prompts');
 const PARSE_PROMPT_PATH = join(PROMPTS_DIR, 'parse.md');
 const BREAKDOWN_PROMPT_PATH = join(PROMPTS_DIR, 'breakdown.md');
