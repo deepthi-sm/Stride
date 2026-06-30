@@ -182,4 +182,8 @@ Open the URL the client prints. The client proxies `/api` to the server, so the 
 
 **Most apps remind you. Stride moves first.**
 
+<br/>
+
+#Vibe2Ship #CodingNinjas #GoogleForDevelopers
+
 </div>
